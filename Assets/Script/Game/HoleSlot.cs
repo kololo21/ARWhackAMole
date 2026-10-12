@@ -2,6 +2,7 @@ using System;
 using System.Collections;
 using UnityEngine;
 using Vuforia;
+using WhackAMole.Sensors;
 
 // 穴(マーカー)1つ分を担当する。各 ImageTarget に付けて使う。
 // ・Spawn でキャラを出す
@@ -34,7 +35,11 @@ public class HoleSlot : DefaultObserverEventHandler
     private GameObject current;
     private Animator currentAnimator;
     private DwellerColor currentColor;
-    private float spawnTime;
+    private float activeAge;
+    public GameObject Current => current;
+    public DwellerColor CurrentColor => currentColor;
+    public MoleKind CurrentKind { get; private set; }
+    public bool IsAlive => state == SlotState.Alive;
     private float lifetime;
 
     protected override void Start()
@@ -58,16 +63,18 @@ public class HoleSlot : DefaultObserverEventHandler
     private void Update()
     {
         // 寿命が来たら引っ込む
-        if (state == SlotState.Alive && Time.time - spawnTime >= lifetime)
+        if (GameManager.Instance == null || GameManager.Instance.SensorsPaused) return;
+        if (state == SlotState.Alive) activeAge += Time.deltaTime;
+        if (state == SlotState.Alive && activeAge >= lifetime)
         {
             Expire();
         }
     }
 
     // キャラを出す。出せたら true
-    public bool Spawn(GameObject prefab, DwellerColor color, float life)
+    public bool Spawn(GameObject prefab, DwellerColor color, float life, bool flash = false)
     {
-        if (!IsTracked || state != SlotState.Empty || prefab == null) return false;
+        if (!IsTracked || state != SlotState.Empty || prefab == null || GameManager.Instance == null || GameManager.Instance.State != GameState.Playing || GameManager.Instance.SensorsPaused) return false;
 
         current = Instantiate(prefab, transform);   // ImageTarget の子として作る
         current.transform.localPosition = Vector3.zero;
@@ -76,9 +83,11 @@ public class HoleSlot : DefaultObserverEventHandler
         currentAnimator = current.GetComponentInChildren<Animator>();
 
         currentColor = color;
-        spawnTime = Time.time;
+        activeAge = 0;
+        CurrentKind = flash ? MoleKind.Flash : prefab.name.Contains("Windup") ? MoleKind.Charge : MoleKind.Normal;
         lifetime = life;
         state = SlotState.Alive;
+        if (flash && currentAnimator != null) { currentAnimator.Play("Idle", 0, 0); currentAnimator.Update(0); }
         return true;
     }
 
@@ -90,12 +99,19 @@ public class HoleSlot : DefaultObserverEventHandler
 
     protected override void OnTrackingLost()
     {
+        bool wasTracked = IsTracked;
         IsTracked = false;
 
-        if (state == SlotState.Alive)
+        if (wasTracked && state == SlotState.Alive)
         {
             // キャラがいる間に覆われた = 倒した。
             // base を呼ぶと表示が消えて Defeat が見えないので、ここでは呼ばない
+            var sensors = WhackSensorGame.Instance;
+            if (GameManager.Instance == null || GameManager.Instance.State != GameState.Playing || GameManager.Instance.SensorsPaused || (sensors != null ? !sensors.TryAuthorizeDefeat(currentColor,CurrentKind) : CurrentKind == MoleKind.Charge))
+            {
+                base.OnTrackingLost();
+                return;
+            }
             Defeat();
             return;
         }
@@ -111,6 +127,7 @@ public class HoleSlot : DefaultObserverEventHandler
         if (GameManager.Instance != null) GameManager.Instance.AddScore(currentColor);
         if (AudioManager.Instance != null) AudioManager.Instance.PlayDefeatSe();
         OnDefeated?.Invoke(currentColor);
+        if (CurrentKind != MoleKind.Charge) WhackSensorGame.Instance?.SendHit(currentColor);
 
         StartCoroutine(RemoveAfter(defeatRemoveDelay));
     }
@@ -147,7 +164,7 @@ public class HoleSlot : DefaultObserverEventHandler
         if (s != GameState.Playing) Clear();
     }
 
-    private void Clear()
+    public void Clear()
     {
         StopAllCoroutines();
         if (current != null) Destroy(current);
@@ -167,6 +184,10 @@ public class HoleSlot : DefaultObserverEventHandler
         bool ok = Spawn(debugPrefab, debugColor, debugLifetime);
         Debug.Log($"{name}: Debug Spawn {(ok ? "成功" : "失敗(マーカーが見えていないか、すでに出ている)")}");
     }
+
+#if UNITY_EDITOR
+    public void SetTrackingForVerification(bool found) { if (found) OnTrackingFound(); else OnTrackingLost(); }
+#endif
 
     // 付けた瞬間にエディタが呼ぶ。覆ったら Lost になるよう「Tracked のみ」にする
     private void Reset()

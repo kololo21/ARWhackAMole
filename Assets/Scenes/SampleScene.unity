@@ -1453,6 +1453,22 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &837068020
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1451882868}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: dd850b1434f756d8b55ee80d1942e489, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::WhackAMole.Sensors.WhackSensorGame
+  serverUrl: ws://127.0.0.1:8787/ws
+  roomKey: demo-room-change-me-2026
+  allowSimulated: 0
+  automaticSensorEvents: 1
 --- !u!1 &874446944
 GameObject:
   m_ObjectHideFlags: 0
@@ -2441,6 +2457,7 @@ GameObject:
   m_Component:
   - component: {fileID: 1451882870}
   - component: {fileID: 1451882869}
+  - component: {fileID: 837068020}
   m_Layer: 0
   m_Name: GameManager
   m_TagString: Untagged
@@ -2460,7 +2477,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: e7b6ada5d487f2d449adad8c2d853c2b, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::GameManager
-  gameDuration: 10
+  gameDuration: 180
   redPoint: 10
   bluePoint: 10
   remainingTime: 0

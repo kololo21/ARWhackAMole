@@ -1,6 +1,7 @@
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using WhackAMole.Sensors;
 
 // ゲーム中だけ、一定間隔でキャラを出す係。
 // マーカーが見えていて空いている穴から 1 つ選び、色・種類・寿命をランダムに決めて HoleSlot.Spawn を呼ぶ。
@@ -42,6 +43,17 @@ public class DwellerSpawner : MonoBehaviour
         HandleState(gm.State);
     }
 
+    private void OnEnable()
+    {
+        if (GameManager.Instance != null) HandleState(GameManager.Instance.State);
+    }
+
+    private void OnDisable()
+    {
+        if (loop != null) StopCoroutine(loop);
+        loop = null;
+    }
+
     private void OnDestroy()
     {
         if (GameManager.Instance != null)
@@ -58,7 +70,7 @@ public class DwellerSpawner : MonoBehaviour
             StopCoroutine(loop);
             loop = null;
         }
-        if (s == GameState.Playing)
+        if (s == GameState.Playing && isActiveAndEnabled)
         {
             loop = StartCoroutine(SpawnLoop());
         }
@@ -66,16 +78,27 @@ public class DwellerSpawner : MonoBehaviour
 
     private IEnumerator SpawnLoop()
     {
-        yield return new WaitForSeconds(firstDelay);
+        yield return WaitPlayingSeconds(firstDelay);
         while (true)
         {
             SpawnOne();
-            yield return new WaitForSeconds(Random.Range(intervalMin, intervalMax));
+            yield return WaitPlayingSeconds(Random.Range(intervalMin, intervalMax));
+        }
+    }
+
+    private IEnumerator WaitPlayingSeconds(float seconds)
+    {
+        float elapsed = 0;
+        while (elapsed < seconds)
+        {
+            if (GameManager.Instance != null && !GameManager.Instance.SensorsPaused) elapsed += Time.deltaTime;
+            yield return null;
         }
     }
 
     private void SpawnOne()
     {
+        if (GameManager.Instance == null || GameManager.Instance.SensorsPaused) return;
         // 今出ている数を数え、空いていてマーカーが見えている穴を集める
         int alive = 0;
         List<HoleSlot> candidates = new List<HoleSlot>();
@@ -83,7 +106,7 @@ public class DwellerSpawner : MonoBehaviour
         {
             if (slot == null) continue;
             if (!slot.IsEmpty) alive++;
-            else if (slot.IsTracked) candidates.Add(slot);
+            else if (slot.IsTracked && (WhackSensorGame.Instance == null || !WhackSensorGame.Instance.IsReserved(slot))) candidates.Add(slot);
         }
         if (alive >= maxAlive || candidates.Count == 0) return;
 

@@ -12,6 +12,10 @@ public class GameManager : MonoBehaviour
     public int redPoint = 10; // 赤のポイント
     public int bluePoint = 10; // 青のポイント
     public GameState State { get; private set; }
+    public bool SensorsPaused { get; set; }
+    public float RemainingTime => remainingTime;
+    public int RedScore => redScore;
+    public int BlueScore => blueScore;
     [SerializeField] private float remainingTime; // 残り時間
     [SerializeField] private int redScore; // 赤のスコア
     [SerializeField] private int blueScore; // 青のスコア
@@ -34,6 +38,7 @@ public class GameManager : MonoBehaviour
         redScore = 0;
         blueScore = 0;
         remainingTime = gameDuration;
+        SensorsPaused = false;
         SetState(GameState.Playing);
         OnScoreChanged?.Invoke(redScore, blueScore);
         OnTimeChanged?.Invoke(remainingTime);
@@ -41,7 +46,7 @@ public class GameManager : MonoBehaviour
 
     void Update()
     {
-        if(State != GameState.Playing)
+        if(State != GameState.Playing || SensorsPaused)
         {
             return;
         }
@@ -83,9 +88,19 @@ public class GameManager : MonoBehaviour
 
  
 
+    public void EndGame()
+    {
+        if (State != GameState.Playing) return;
+        remainingTime = 0; SensorsPaused = false;
+        OnTimeChanged?.Invoke(remainingTime);
+        SetState(GameState.Result);
+    }
+
+    private void OnDestroy() { if (Instance == this) Instance = null; }
+
     public void AddScore(DwellerColor colors)
     {
-        if(State != GameState.Playing)
+        if(State != GameState.Playing || SensorsPaused)
         {
             return; // ゲーム中でない場合はスコアを加算しない
         }

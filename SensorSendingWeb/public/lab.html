@@ -1,0 +1,21 @@
+<!doctype html><html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Sensor Lab · 動作実験</title><link rel="stylesheet" href="/style.css"><link rel="stylesheet" href="/lab.css"></head><body><main>
+<header><div class="logo">AR LAB / MOTION EXPERIMENT</div><a id="senderLink" href="/">送信画面 ↗</a></header>
+<div class="intro"><h1>体の動きを、測ろう。</h1><p>左手にスマホ、右手にハンマー。1回12秒の実験で、意図した動作と誤反応を比較します。</p></div>
+<div class="grid">
+<section class="card wide"><h2>1. センサーを準備</h2><div class="controls">
+<div><label for="device">実験する端末</label><select id="device"><option value="android-chrome">Android / Chrome</option><option value="iphone-safari">iPhone / Safari</option></select></div>
+<div><label for="room">ルームキー</label><input id="room" minlength="16" maxlength="64" autocomplete="off"></div>
+<div><label for="player">チーム</label><select id="player"><option value="red">赤</option><option value="blue">青</option></select></div>
+<div><label for="label">動作</label><select id="label"></select></div></div>
+<div class="actions"><button id="enable" class="primary">センサーを許可する</button><button id="calibrate" disabled>今の傾きを基準にする</button><button id="mic" disabled>声の実験：マイクを許可</button></div><div id="status" class="status" role="status">未開始</div>
+<p class="sub">生の音声・映像は保存しません。測定値はこの端末で記録し、「PCに保存」でPCへ送ります。通常の送信画面は一度停止してから実験してください。</p></section>
+<section class="card wide"><h2>2. 12秒の記録</h2><div class="pill">実験判定 V2 ＋ 円候補 C1 · 検証中</div><p id="instruction"></p><div class="notice">スマホを落とさないよう、周囲に余裕のある場所で小さな動作から試してください。ジャンプは無理のない範囲で。測定中は振動を止め、画面と短い音で合図します。</div>
+<div id="cue" class="cue" role="status" aria-live="polite">準備待ち</div><progress id="progress" max="12" value="0" aria-label="記録の進み具合"></progress>
+<div class="actions"><button id="record" class="primary" disabled>3秒後に記録開始</button><button id="cancel" disabled>中止</button></div>
+<div class="metrics"><div class="metric"><label>加速度 / m/s²</label><div class="value readout" id="a">—</div></div><div class="metric"><label>重力込み / g</label><div class="value readout" id="g">—</div></div><div class="metric"><label>回転速度 / deg/s</label><div class="readout" id="gyro">—</div></div><div class="metric"><label>傾き / ° ・声 / RMS</label><div class="readout" id="other">—</div></div></div>
+<canvas id="plot" class="plot" width="600" height="100" aria-label="加速度の推移"></canvas><div id="events" class="events"></div></section>
+<section class="card wide"><h2>3. 結果を保存</h2><p id="result">まだ記録していません。</p><div class="controls"><div><label for="actual">実際に行った回数（静止・周囲の声は0）</label><input id="actual" type="number" min="0" max="30" step="1" value="3"></div><div><label for="notes">メモ（動作の大きさ・持ち方・失敗した合図など）</label><input id="notes" maxlength="300" placeholder="例：上下に軽く振る、2回目は遅れた"></div></div>
+<div class="actions"><button id="save" class="primary" disabled>PCに保存</button><button id="download" disabled>JSONを端末に保存</button></div><div id="saved" class="status" role="status"></div><div class="table-wrap"><table><thead><tr><th>加速度のみの振る閾値 / m/s²</th><th>検出数</th><th>合図1 / 2 / 3</th></tr></thead><tbody id="sweep"></tbody></table></div><p class="sub">表は従来の加速度だけの比較です。更新版V2の回数は上の結果に表示します。合図付近の検出は動作の正解ラベルではありません。V2はAndroidの保存済み記録から調整した候補で、別の試行とiPhoneでの検証が必要です。</p></section>
+<section class="card wide"><h2>振動・合図の確認</h2><div class="actions"><button id="vibrationOnly">振動だけを1秒テスト</button><button id="vibration">振動＋音のテスト</button><button id="sound">画面＋音だけのテスト</button></div><div id="feedback" class="status" role="status">iPhone Safariは振動API非対応。Androidも実際に振動するか確認してください。</div><p class="sub">センサー許可・Unityへの接続は不要です。記録中はテストできません。Androidで要求を受け付けても振動しない場合は、サイレント・おやすみモードと端末の振動設定を確認してください。</p></section>
+</div><div class="foot">画面を開いたまま測定してください。別の画面に切り替えると記録は中止します。実機データが不足している場合は保存できません。</div>
+</main><script type="module" src="/lab.js"></script></body></html>

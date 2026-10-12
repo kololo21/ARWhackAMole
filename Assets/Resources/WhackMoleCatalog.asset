@@ -1,0 +1,20 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 802ac438c0e2545da2f3bbecbdfe364e, type: 3}
+  m_Name: WhackMoleCatalog
+  m_EditorClassIdentifier: Assembly-CSharp::WhackAMole.Sensors.WhackMoleCatalog
+  normalRed: {fileID: 4678786423660121728, guid: 8bdf2e0a76bc7024e9a7e2b3ac577cc3, type: 3}
+  normalBlue: {fileID: 8077455535903714675, guid: b6282100e77efec45a024a66a7ed5e1e, type: 3}
+  chargeRed: {fileID: 8672301142019047436, guid: 84dd3cd17ffa91b47918faf43eabd0c9, type: 3}
+  chargeBlue: {fileID: 8579242997521168998, guid: 7a45118fc64231f4486cee9b86644c53, type: 3}
+  flashRed: {fileID: 7425872639313400893, guid: 02e8675414dd9bd4fa8be573c307845a, type: 3}
+  flashBlue: {fileID: 4930590013473716528, guid: 7f65f8e944f9d8d44b83bf95f2f405b7, type: 3}

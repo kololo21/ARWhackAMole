@@ -1,0 +1,9 @@
+node_modules/
+.env
+.env.*
+certs/
+.tools/
+*.log
+data/experiments/
+qa/
+.DS_Store
