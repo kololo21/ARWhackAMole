@@ -16,11 +16,11 @@ Vuforiaの穴マーカーを手で隠して遊ぶ、赤・青2チームのARも�
 
 ## 取得
 
-今回のセンサー実装は `agent/sensor-gameplay` ブランチです。
+スマホセンサー連携は `main` に含まれています。
 
 ```sh
 git lfs install
-git clone --branch agent/sensor-gameplay https://github.com/kololo21/ARWhackAMole.git
+git clone https://github.com/kololo21/ARWhackAMole.git
 cd ARWhackAMole
 git lfs pull
 ```
@@ -125,3 +125,9 @@ node Tools/sensor-game-test-senders.mjs
 検証専用ルームを使い、通常のプレイルームには合成データを流しません。検証終了後は送信スクリプトをCtrl+Cで停止します。結果は `Verification/` に保存されます。
 
 ソフトウェア上の統合確認は合成センサー・追跡状態で成功。2026-10-12に利用者による実スマホからのゲームへの受信・チャージ増加も確認できました。スマホ2台の対戦・実際の手の遮蔽・物理振動を合わせた一連の実機試験は未実施です。
+
+## Git管理するファイルとローカル生成物
+
+シーン・Prefab・スクリプト・必要なアセットとそのmeta、ProjectSettings／Packages、Assets/StreamingAssets内のマーカーデータ、SensorSendingWebのソース・ロックファイル・READMEは共有します。
+
+UnityのLibrary／Temp／Logs／UserSettings、生成されたcsproj／sln、VS Codeのローカル設定、QCARのローカル状態、Vuforiaの各PC用ライセンス設定とそのmeta、node_modules、実測記録、Verificationの再生成画像・結果はignoreしています。ライセンス設定は各PCで設定してください。ignore対象もローカルには残り、検証や記録で必要なときに再生成・利用できます。

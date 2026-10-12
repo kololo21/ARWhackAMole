@@ -113,3 +113,14 @@ InitTestScene*.unity*
 # Auto-generated cache in Assets folder
 /[Aa]ssets/[Ss]ceneDependencyCache*
 Assets/Resources/VuforiaConfiguration.asset
+
+# Local editor / OS settings
+.DS_Store
+/.vscode/
+
+# Per-machine Vuforia state (target databases under Assets/StreamingAssets stay tracked)
+/QCAR/
+/Assets/Resources/VuforiaConfiguration.asset.meta
+
+# Regenerated sensor verification screenshots and results
+/Verification/
