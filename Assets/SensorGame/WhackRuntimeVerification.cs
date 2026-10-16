@@ -211,6 +211,7 @@ public sealed class WhackRuntimeVerification : MonoBehaviour
             else if(phase==19&&now-phaseAt>100)
             {
                 Check(m.Flash==SensorBridge.SensorArenaModel.FlashPhase.Idle&&game.FlashHole==null,"pre-cover cancels speed warning");
+                CheckFlashPreCoverBoundaries();
                 for(int i=0;i<3;i++)Found(i);game.BeginFlash();Check(game.FlashWarning,"restart PC warning");phase=15;
             }
             else if(phase==15&&game.Holes.Any(h=>h.IsAlive&&h.CurrentKind==MoleKind.Flash))
@@ -231,6 +232,40 @@ public sealed class WhackRuntimeVerification : MonoBehaviour
         catch(Exception e){File.WriteAllText(Path.Combine(output,"sensor-integration-result.json"),"{\"passed\":false,\"phase\":"+phase+",\"error\":\""+e.Message.Replace("\\","\\\\").Replace("\"","\\\"")+"\"}");Debug.LogError("WHACK_SENSOR_INTEGRATION_FAILED: "+e);EditorApplication.isPlaying=false;enabled=false;}
     }
     private void ClearBoard(){for(int i=0;i<game.Holes.Length;i++){game.Holes[i].Clear();Found(i);}}
+    private void CheckFlashPreCoverBoundaries()
+    {
+        var model=game.Model;double lead=model.WarningLeadMs;
+        int red=game.Manager.RedScore,blue=game.Manager.BlueScore;
+        double redCharge=model.Red.Charge,blueCharge=model.Blue.Charge;
+        try
+        {
+            model.WarningLeadMs=100;
+            for(int scenario=0;scenario<3;scenario++)
+            {
+                ClearBoard();game.BeginFlash();var hole=game.FlashHole;
+                Check(hole!=null&&game.FlashWarning,"boundary regression starts a fresh reservation");
+                int index=Array.IndexOf(game.Holes,hole);double boundary=model.FlashStartMs;
+                game.AdvanceFrame(boundary-1);Check(game.FlashWarning,"one millisecond before start is still warning");
+                Cover(index);
+                // Cover+Found can also arrive between consecutive LateUpdate calls.
+                if(scenario==1)Found(index);
+                // The cancellation must survive a model transition to Visible.
+                if(scenario==2)model.Tick(boundary+1);
+                game.AdvanceFrame(boundary+1);
+                Check(model.Flash==SensorBridge.SensorArenaModel.FlashPhase.Idle&&game.FlashHole==null,
+                    "pre-cover at start boundary releases reservation, scenario "+scenario);
+                Found(index);game.AdvanceFrame(boundary+2);
+                Check(game.Holes.All(h=>!h.IsAlive)&&game.FlashHole==null,"reacquiring inside 900ms cannot spawn a cancelled Speedy");
+                Check(game.Manager.RedScore==red&&game.Manager.BlueScore==blue&&model.Red.Charge==redCharge&&model.Blue.Charge==blueCharge,
+                    "boundary cancellation neither scores nor spends charge");
+            }
+            Debug.Log("WHACK_FLASH_BOUNDARY_CHECKS_PASSED: pre-cover across start, same-frame reacquisition, already-visible model, no late spawn/score/spend");
+        }
+        finally
+        {
+            model.WarningLeadMs=lead;model.CancelFlash("boundary verification cleanup");game.AdvanceFrame(WhackSensorGame.Now);ClearBoard();
+        }
+    }
     private void OnDestroy(){if(batchTarget!=null)DestroyImmediate(batchTarget);}
 }
 #endif

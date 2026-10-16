@@ -25,7 +25,7 @@ namespace WhackAMole.Sensors
         private SensorGameHud hud;
         private HoleSlot reserved;
         private DwellerColor flashColor;
-        private bool flashSpawned, contestPending;
+        private bool flashSpawned, flashPreCovered, contestPending;
         private double nextContestAt=60,nextFlashAt=18;
         private AudioSource cueAudio;
         private AudioClip cueClip;
@@ -87,7 +87,7 @@ namespace WhackAMole.Sensors
         }
         private void HandleState(GameState state)
         {
-            Manager.SensorsPaused=false;reserved=null;flashSpawned=contestPending=false;
+            Manager.SensorsPaused=false;reserved=null;flashSpawned=flashPreCovered=contestPending=false;
             Model.Reset();hud?.ResetChargeFeedback();nextContestAt=60;nextFlashAt=18;notice=$"通常は手で叩く。ぜんまいは{Model.ChargeCost:0}、王様は{Model.KingChargeCost:0}チャージ";
         }
         public bool TryAuthorizeDefeat(DwellerColor color,MoleKind kind)
@@ -112,6 +112,11 @@ namespace WhackAMole.Sensors
         }
         private bool AtCapacity()=>FindObjectsByType<DwellerSpawner>(FindObjectsSortMode.None).Any(s=>s.IsAtCapacity);
         public bool IsReserved(HoleSlot hole)=>hole==reserved;
+        internal void NotifyTrackingLost(HoleSlot hole)
+        {
+            // Keep the loss even if tracking returns before the next frame.
+            if(hole==reserved&&!flashSpawned)flashPreCovered=true;
+        }
         public void SetNotice(string value){notice=value;}
         public void BeginContest()
         {
@@ -123,7 +128,7 @@ namespace WhackAMole.Sensors
             var hole=Holes.FirstOrDefault(h=>h.IsTracked&&h.IsEmpty);
             if(!IsPlaying||hole==null||AtCapacity()){SetNotice("認識中の空いている穴と出現枠が必要です");return;}
             if(!Model.BeginFlash(Now)){SetNotice(Model.FlashMessage);return;}
-            reserved=hole;flashColor=UnityEngine.Random.value<.5f?DwellerColor.Red:DwellerColor.Blue;flashSpawned=false;
+            reserved=hole;flashColor=UnityEngine.Random.value<.5f?DwellerColor.Red:DwellerColor.Blue;flashSpawned=flashPreCovered=false;
             cueAudio.PlayOneShot(cueClip);SetNotice("穴の予告を見て、出てから叩こう！");
         }
         public void ShowChargeMole()
@@ -133,9 +138,17 @@ namespace WhackAMole.Sensors
             var color=UnityEngine.Random.value<.5f?DwellerColor.Red:DwellerColor.Blue;
             hole.Spawn(Catalog.Prefab(MoleKind.Charge,Team(color)),color,5);
         }
-        private void LateUpdate()
+        private void LateUpdate()=>AdvanceFrame(Now);
+        internal void AdvanceFrame(double now)
         {
-            Model.AllowSimulated=allowSimulated;Model.Tick(Now);
+            // Check before Tick can move LeadIn to Visible. A pre-spawn loss also
+            // invalidates a reservation whose model has already reached Visible.
+            if(IsPlaying&&reserved!=null&&!flashSpawned&&(flashPreCovered||!reserved.IsTracked))
+            {
+                Model.CancelFlash("予告中に穴が隠れたため中止。出てから叩こう");
+                notice=Model.FlashMessage;reserved=null;flashPreCovered=false;
+            }
+            Model.AllowSimulated=allowSimulated;Model.Tick(now);
             if(IsPlaying)
             {
                 Manager.SensorsPaused=Model.MatchBusy;
@@ -144,19 +157,18 @@ namespace WhackAMole.Sensors
                     contestPending=false;SensorGamePolicy.RewardWinner(Model);notice=Model.Result;
                 }
                 double elapsed=Manager.gameDuration-Manager.RemainingTime;
-                if(automaticSensorEvents&&!Model.MatchBusy&&Model.Flash==SensorArenaModel.FlashPhase.Idle&&Model.Ready(Model.Red,Now)&&Model.Ready(Model.Blue,Now))
+                if(automaticSensorEvents&&!Model.MatchBusy&&Model.Flash==SensorArenaModel.FlashPhase.Idle&&Model.Ready(Model.Red,now)&&Model.Ready(Model.Blue,now))
                 {
                     if(elapsed>=nextContestAt){BeginContest();nextContestAt=elapsed+60;}
                     else if(elapsed>=nextFlashAt){BeginFlash();nextFlashAt=elapsed+(reserved!=null?UnityEngine.Random.Range(12f,22f):2);}
                 }
                 if(reserved!=null)
                 {
-                    if(Model.Flash==SensorArenaModel.FlashPhase.LeadIn&&!reserved.IsTracked)Model.CancelFlash("予告中に穴が隠れたため中止。出てから叩こう");
                     if(Model.Flash==SensorArenaModel.FlashPhase.Visible&&!flashSpawned)
                     {
                         flashSpawned=reserved.Spawn(Catalog.Prefab(MoleKind.Flash,Team(flashColor)),flashColor,(float)(Model.FlashDurationMs/1000),true);
                     }
-                    if(Model.Flash==SensorArenaModel.FlashPhase.Idle){if(flashSpawned&&reserved.IsAlive)reserved.ExpireNow();if(!flashSpawned)notice=Model.FlashMessage;reserved=null;}
+                    if(Model.Flash==SensorArenaModel.FlashPhase.Idle){if(flashSpawned&&reserved.IsAlive)reserved.ExpireNow();if(!flashSpawned)notice=Model.FlashMessage;reserved=null;flashPreCovered=false;}
                 }
             }
             hud?.Refresh(notice);

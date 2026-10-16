@@ -151,6 +151,7 @@ public class HoleSlot : DefaultObserverEventHandler
     {
         bool wasTracked = IsTracked;
         IsTracked = false;
+        if(wasTracked)WhackSensorGame.Instance?.NotifyTrackingLost(this);
 
         if (wasTracked && state == SlotState.Alive)
         {

@@ -185,3 +185,7 @@ Unity側は `Sensor Game → Run Rules Checks`。統合確認は中継を起動�
 ## 2026-10-16：カメラの表示方向
 
 START前と結果画面に、左右反転／上下反転を独立して選ぶボタンと解除ボタンを追加。CameraDisplaySettingsが現在のPlay中の設定を保持し、ラウンド中の変更を拒否する。リトライで維持、Playの再開始でOFF。CameraFlipRendererFeatureをPC／Mobile Rendererへ追加し、映像とAR合成後に反転、オーバーレイ文字は反転しない。SensorGameHudの敵付近のラベルは反転後の位置へ移す。マーカー追跡・センサー・撃破ロジックは変更しない。検証用の4色画像で4通りの描画とラベル座標を照合するCameraDisplayChecksを既存統合検証に含める。カメラ固有の入力方向は実機で確認する。
+
+## 2026-10-16：PR #4 スピード型の開始境界
+
+レビューで指摘された先隠しの境界バグを合成統合検証で再現し、修正。HoleSlotが追跡ロストをWhackSensorGameへ通知して出現前の遮蔽を記録し、AdvanceFrameがModel.Tickより前に予約を解除する。LeadInからVisibleへ進んだ場合や、フレーム間で隠して再認識した場合も解除を維持する。開始1ms前のCover→開始1ms後の更新→Found、同一フレーム内のCover／Found、モデルだけVisibleへ進めた場合の3ケースで、遅れた出現・加点・消費がないことを確認。続く正常なスピード撃破、7種の統合・カメラ反転・ルール確認、Web build／lintも成功。実機の認識精度の確認とは区別する。
