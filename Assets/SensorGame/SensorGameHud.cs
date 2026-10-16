@@ -25,6 +25,8 @@ namespace WhackAMole.Sensors
         private readonly System.Collections.Generic.Dictionary<HoleSlot,TMP_Text> holeLabels=new System.Collections.Generic.Dictionary<HoleSlot,TMP_Text>();
         private RectTransform canvasRect;
         private Canvas canvasComponent;
+        private GameObject cameraSettingsPanel;
+        private TMP_Text horizontalSetting,verticalSetting;
         public TMP_FontAsset JapaneseFont=>font;
         public static SensorGameHud Create(WhackSensorGame game,GameObject canvas)
         {
@@ -39,6 +41,7 @@ namespace WhackAMole.Sensors
             if(source){font=TMP_FontAsset.CreateFontAsset(source);font.isMultiAtlasTexturesEnabled=true;}
             else font=TMP_Settings.defaultFontAsset;
             canvasComponent=GetComponentInParent<Canvas>();canvasRect=canvasComponent.GetComponent<RectTransform>();
+            BuildCameraSettings();
             foreach(var hole in game.Holes)
             {
                 var box=Element("Instruction_"+hole.name,transform,new Vector2(.5f,.5f),new Vector2(.5f,.5f),new Vector2(-190,0),new Vector2(190,78));
@@ -63,6 +66,34 @@ namespace WhackAMole.Sensors
         private static RectTransform Element(string name,Transform parent,Vector2 min,Vector2 max,Vector2 low,Vector2 high)
         {
             var o=new GameObject(name,typeof(RectTransform));o.transform.SetParent(parent,false);var r=o.GetComponent<RectTransform>();r.anchorMin=min;r.anchorMax=max;r.offsetMin=low;r.offsetMax=high;return r;
+        }
+        private void BuildCameraSettings()
+        {
+            var panel=Element("CameraSettingsPanel",transform,new Vector2(.5f,.5f),new Vector2(.5f,.5f),new Vector2(-430,-45),new Vector2(430,85));
+            cameraSettingsPanel=panel.gameObject;
+            var background=panel.gameObject.AddComponent<Image>();background.color=new Color(.035f,.055f,.075f,.96f);
+            Text("CameraSettingsTitle",panel,"カメラの表示方向",22,new Vector2(18,99),new Vector2(840,129),Color.white);
+            var horizontal=Button("FlipHorizontal",panel,"",new Vector2(18,48),new Vector2(278,94),()=>
+            {
+                var settings=CameraDisplaySettings.Instance;settings.Configure(!settings.FlipHorizontal,settings.FlipVertical);RefreshCameraSettings();
+            });
+            var vertical=Button("FlipVertical",panel,"",new Vector2(296,48),new Vector2(556,94),()=>
+            {
+                var settings=CameraDisplaySettings.Instance;settings.Configure(settings.FlipHorizontal,!settings.FlipVertical);RefreshCameraSettings();
+            });
+            Button("ResetCameraFlip",panel,"反転なしに戻す",new Vector2(574,48),new Vector2(842,94),()=>
+            {CameraDisplaySettings.Instance.Configure(false,false);RefreshCameraSettings();});
+            horizontalSetting=horizontal.GetComponentInChildren<TMP_Text>();verticalSetting=vertical.GetComponentInChildren<TMP_Text>();
+            Text("CameraSettingsHelp",panel,"映像とモグラを一緒に反転します。両方ONで180度回転。",18,new Vector2(18,8),new Vector2(842,40),new Color(.78f,.85f,.9f));
+            RefreshCameraSettings();
+        }
+        private void RefreshCameraSettings()
+        {
+            var settings=CameraDisplaySettings.Instance;if(settings==null)return;
+            horizontalSetting.text="左右反転："+(settings.FlipHorizontal?"ON":"OFF");
+            verticalSetting.text="上下反転："+(settings.FlipVertical?"ON":"OFF");
+            horizontalSetting.color=settings.FlipHorizontal?new Color(.5f,1,.7f):Color.white;
+            verticalSetting.color=settings.FlipVertical?new Color(.5f,1,.7f):Color.white;
         }
         private TMP_Text Text(string name,Transform parent,string value,int size,Vector2 low,Vector2 high,Color colour)
         {
@@ -114,6 +145,9 @@ namespace WhackAMole.Sensors
         }
         public void Refresh(string message)
         {
+            cameraSettingsPanel.SetActive(!game.IsPlaying);
+            ((RectTransform)cameraSettingsPanel.transform).anchoredPosition=new Vector2(0,game.Manager!=null&&game.Manager.State==GameState.Result?-70:20);
+            RefreshCameraSettings();
             var m=game.Model;var now=WhackSensorGame.Now;
             red.text=$"RED  チャージ {m.Red.Charge:0} / {m.ChargeLimit:0}    往復 {m.Red.ShakeCount}回";
             blue.text=$"BLUE  チャージ {m.Blue.Charge:0} / {m.ChargeLimit:0}    往復 {m.Blue.ShakeCount}回";
@@ -145,7 +179,7 @@ namespace WhackAMole.Sensors
                     var renderer=hole.Current.GetComponentInChildren<Renderer>();
                     if(renderer!=null)position=renderer.bounds.center+Vector3.up*renderer.bounds.extents.y;
                 }
-                var screen=camera.WorldToScreenPoint(position);
+                var screen=CameraDisplaySettings.ToDisplayPoint(camera.WorldToScreenPoint(position),camera);
                 if(screen.z<=0){box.gameObject.SetActive(false);continue;}
                 Vector2 local;RectTransformUtility.ScreenPointToLocalPointInRectangle(canvasRect,screen,canvasComponent.renderMode==RenderMode.ScreenSpaceOverlay?null:canvasComponent.worldCamera,out local);
                 float x=Mathf.Clamp(local.x,canvasRect.rect.xMin+195,canvasRect.rect.xMax-195);

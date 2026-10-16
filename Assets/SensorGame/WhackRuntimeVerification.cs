@@ -75,6 +75,12 @@ public sealed class WhackRuntimeVerification : MonoBehaviour
             if(phase==0&&m.Ready(m.Red,now)&&m.Ready(m.Blue,now))
             {
                 Check(game.Catalog!=null&&game.Holes.Length==3,"updated three-HoleSlot scene and catalog");
+                CameraDisplayChecks.Run(output);
+                phase=20;phaseAt=now;
+            }
+            else if(phase==20&&now-phaseAt>150)
+            {
+                // Let overlay canvases rebuild after the isolated camera render.
                 var start=WhackSensorGame.SceneObject("StartButton");Screenshot("character-start.png");Canvas.ForceUpdateCanvases();
                 var startCanvas=start.GetComponentInParent<Canvas>().rootCanvas;
                 var pointer=new UnityEngine.EventSystems.PointerEventData(UnityEngine.EventSystems.EventSystem.current){position=RectTransformUtility.WorldToScreenPoint(startCanvas.renderMode==RenderMode.ScreenSpaceOverlay?null:startCanvas.worldCamera,start.GetComponent<RectTransform>().position)};
@@ -82,6 +88,7 @@ public sealed class WhackRuntimeVerification : MonoBehaviour
                 Debug.Log("START_VERIFY: position="+pointer.position+" active="+start.activeInHierarchy+" hits="+string.Join(",",hits.Select(h=>h.gameObject.name)));
                 Check(hits.Count>0&&(hits[0].gameObject==start||hits[0].gameObject.transform.IsChildOf(start.transform)),"START pointer accessibility");
                 start.GetComponent<Button>().onClick.Invoke();Check(game.IsPlaying&&!WhackSensorGame.SceneObject("TitlePanel").activeSelf,"upstream StartGame and UIController");
+                CameraDisplaySettings.Instance.Configure(true,true);Check(!CameraDisplaySettings.Instance.IsFlipped,"camera controls are locked during a round");
                 for(int i=0;i<3;i++)Found(i);
                 game.Holes[0].Spawn(game.Catalog.normalRed,DwellerColor.Red,30);m.Red.Charge=0;
                 Cover(0);Cover(0);Check(gm.RedScore==10&&m.Red.Charge==0,"upstream normal 10 points, offline charge-free and exactly once");
@@ -134,6 +141,9 @@ public sealed class WhackRuntimeVerification : MonoBehaviour
             }
             else if(phase==6&&gm.State==GameState.Result)
             {
+                WhackSensorGame.SceneObject("SensorGameHUD").GetComponent<SensorGameHud>().Refresh("");
+                Check(WhackSensorGame.SceneObject("CameraSettingsPanel").activeSelf,"camera settings available before retry");
+                CameraDisplaySettings.Instance.Configure(true,false);Check(CameraDisplaySettings.Instance.FlipHorizontal,"result permits next-round configuration");CameraDisplaySettings.Instance.Configure(false,false);
                 Check(WhackSensorGame.SceneObject("ResultPanel").activeSelf,"upstream result panel");Screenshot("sensor-game-result.png");phase=7;phaseAt=now;
             }
             else if(phase==7&&now-phaseAt>700)

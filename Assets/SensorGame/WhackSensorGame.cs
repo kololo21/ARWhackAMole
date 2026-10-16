@@ -53,6 +53,7 @@ namespace WhackAMole.Sensors
         private void Awake()
         {
             Instance=this;Application.runInBackground=true;
+            if(GetComponent<CameraDisplaySettings>()==null)gameObject.AddComponent<CameraDisplaySettings>();
             Catalog=Resources.Load<WhackMoleCatalog>("WhackMoleCatalog");
             Holes=FindObjectsByType<HoleSlot>(FindObjectsInactive.Include,FindObjectsSortMode.None).OrderBy(o=>o.name).ToArray();
             Receiver=GetComponent<SensorBridgeReceiver>()??gameObject.AddComponent<SensorBridgeReceiver>();
