@@ -98,7 +98,7 @@ public class GameManager : MonoBehaviour
 
     private void OnDestroy() { if (Instance == this) Instance = null; }
 
-    public void AddScore(DwellerColor colors)
+    public void AddScore(DwellerColor colors,int multiplier=1)
     {
         if(State != GameState.Playing || SensorsPaused)
         {
@@ -107,10 +107,10 @@ public class GameManager : MonoBehaviour
         switch (colors)
         {
             case DwellerColor.Red:
-                redScore += redPoint;
+                redScore += redPoint*multiplier;
                 break;
             case DwellerColor.Blue:
-                blueScore += bluePoint;
+                blueScore += bluePoint*multiplier;
                 break;
         }
         OnScoreChanged?.Invoke(redScore, blueScore);

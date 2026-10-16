@@ -41,6 +41,36 @@ public class HoleSlot : DefaultObserverEventHandler
     public MoleKind CurrentKind { get; private set; }
     public bool IsAlive => state == SlotState.Alive;
     private float lifetime;
+    private bool helmetBroken,weakened,wasSensorTarget;
+    private float tiltProgress,trackedAge;
+    private Transform prop;
+    private Mesh removedPropMesh;
+    private static long nextSpawnOrder;
+    public long SpawnOrder {get;private set;}
+    public long SpawnSensorSeq {get;private set;}
+    public double SpawnTimeMs {get;private set;}
+    public bool IsWeakened=>weakened;
+    public bool NeedsSensor=>IsAlive&&!weakened&&(CurrentKind==MoleKind.Balance||CurrentKind==MoleKind.Sleepy);
+    public float TiltProgress=>tiltProgress;
+    public string Instruction
+    {
+        get
+        {
+            var game=WhackSensorGame.Instance;string action="手で穴を隠す";
+            var player=game?.Model.Get(WhackSensorGame.Team(currentColor));
+            if(CurrentKind==MoleKind.Helmet)action=helmetBroken?"装甲破壊！ 手を戻してもう1回":"手を戻しながら2回叩く";
+            else if(CurrentKind==MoleKind.Balance)action=weakened?"ボールが落ちた！ 叩こう":$"{game.balanceTiltDegrees:0}°傾けてキープ {tiltProgress/game.balanceHoldSeconds:P0}";
+            else if(CurrentKind==MoleKind.Sleepy)action=weakened?"起きた！ 叩こう":player==null||!game.Model.MicrophoneReady(player,WhackSensorGame.Now)?"スマホのマイクを許可":player.LastQuietSeq<=SpawnSensorSeq?"一度静かにしてから声を出す":"声で起こしてから叩く";
+            else if(CurrentKind==MoleKind.Charge||CurrentKind==MoleKind.King)
+            {
+                double cost=game==null?(CurrentKind==MoleKind.King?75:50):SensorGamePolicy.Cost(game.Model,CurrentKind);
+                action=player!=null&&player.Charge>=cost?$"叩こう！ チャージ{cost:0}消費":$"腕回しで準備：あと{Math.Ceiling(cost-(player?.Charge??0)):0}";
+            }
+            if(NeedsSensor&&game!=null&&game.SensorTarget(currentColor)!=this)action="同じ色の先の敵を解除しよう";
+            int points=(GameManager.Instance==null?10:currentColor==DwellerColor.Red?GameManager.Instance.redPoint:GameManager.Instance.bluePoint)*SensorGamePolicy.ScoreMultiplier(CurrentKind);
+            return $"{SensorGamePolicy.Name(CurrentKind)} {(currentColor==DwellerColor.Red?"R":"B")} +{points}\n{action}";
+        }
+    }
 
     protected override void Start()
     {
@@ -54,6 +84,7 @@ public class HoleSlot : DefaultObserverEventHandler
     protected override void OnDestroy()
     {
         base.OnDestroy();
+        if(removedPropMesh!=null)Destroy(removedPropMesh);
         if (GameManager.Instance != null)
         {
             GameManager.Instance.OnStateChanged -= HandleGameState;
@@ -64,6 +95,21 @@ public class HoleSlot : DefaultObserverEventHandler
     {
         // 寿命が来たら引っ込む
         if (GameManager.Instance == null || GameManager.Instance.SensorsPaused) return;
+        trackedAge=IsTracked?trackedAge+Time.deltaTime:0;
+        if(NeedsSensor&&WhackSensorGame.Instance!=null)
+        {
+            var game=WhackSensorGame.Instance;var player=game.Model.Get(WhackSensorGame.Team(currentColor));
+            bool target=game.SensorTarget(currentColor)==this;
+            if(!target||!IsTracked||!game.Model.TiltReady(player,WhackSensorGame.Now))tiltProgress=0;
+            if(target&&!wasSensorTarget){SpawnSensorSeq=player.LastSeq;tiltProgress=0;}
+            if(player.LastSeq<SpawnSensorSeq)SpawnSensorSeq=player.LastSeq;
+            wasSensorTarget=target;
+            if(target&&IsTracked&&CurrentKind==MoleKind.Balance&&player.LastSeq>SpawnSensorSeq&&game.Model.TiltReady(player,WhackSensorGame.Now))
+            {
+                tiltProgress=player.TiltDegrees>=game.balanceTiltDegrees?tiltProgress+Time.deltaTime:0;
+                if(tiltProgress>=game.balanceHoldSeconds)Weaken();
+            }
+        }
         if (state == SlotState.Alive) activeAge += Time.deltaTime;
         if (state == SlotState.Alive && activeAge >= lifetime)
         {
@@ -84,8 +130,11 @@ public class HoleSlot : DefaultObserverEventHandler
 
         currentColor = color;
         activeAge = 0;
-        CurrentKind = flash ? MoleKind.Flash : prefab.name.Contains("Windup") ? MoleKind.Charge : MoleKind.Normal;
-        lifetime = life;
+        CurrentKind = flash ? MoleKind.Flash : WhackSensorGame.Instance!=null&&WhackSensorGame.Instance.Catalog!=null?WhackSensorGame.Instance.Catalog.KindOf(prefab):MoleKind.Normal;
+        lifetime = flash?life:Mathf.Max(life,SensorGamePolicy.MinimumLifetime(CurrentKind));
+        helmetBroken=weakened=wasSensorTarget=false;tiltProgress=0;SpawnOrder=++nextSpawnOrder;SpawnTimeMs=WhackSensorGame.Now;
+        SpawnSensorSeq=WhackSensorGame.Instance?.Model.Get(WhackSensorGame.Team(color)).LastSeq??-1;
+        prop=null;foreach(var t in current.GetComponentsInChildren<Transform>())if(t.name=="prop"){prop=t;break;}
         state = SlotState.Alive;
         if (flash && currentAnimator != null) { currentAnimator.Play("Idle", 0, 0); currentAnimator.Update(0); }
         return true;
@@ -95,19 +144,30 @@ public class HoleSlot : DefaultObserverEventHandler
     {
         base.OnTrackingFound();   // 隠れていた穴やキャラを表示する
         IsTracked = true;
+        trackedAge=0;
     }
 
     protected override void OnTrackingLost()
     {
         bool wasTracked = IsTracked;
         IsTracked = false;
+        if(wasTracked)WhackSensorGame.Instance?.NotifyTrackingLost(this);
 
         if (wasTracked && state == SlotState.Alive)
         {
             // キャラがいる間に覆われた = 倒した。
             // base を呼ぶと表示が消えて Defeat が見えないので、ここでは呼ばない
             var sensors = WhackSensorGame.Instance;
-            if (GameManager.Instance == null || GameManager.Instance.State != GameState.Playing || GameManager.Instance.SensorsPaused || (sensors != null ? !sensors.TryAuthorizeDefeat(currentColor,CurrentKind) : CurrentKind == MoleKind.Charge))
+            if(GameManager.Instance!=null&&GameManager.Instance.State==GameState.Playing&&!GameManager.Instance.SensorsPaused)
+            {
+                if(CurrentKind==MoleKind.Helmet&&(!helmetBroken||trackedAge<.12f))
+                {
+                    helmetBroken=true;sensors?.SetNotice("装甲を壊した！ 手を戻して、もう一度叩こう");
+                    base.OnTrackingLost();return;
+                }
+                if(NeedsSensor){sensors?.SetNotice(Instruction.Replace("\n","："));base.OnTrackingLost();return;}
+            }
+            if (GameManager.Instance == null || GameManager.Instance.State != GameState.Playing || GameManager.Instance.SensorsPaused || (sensors != null ? !sensors.TryAuthorizeDefeat(currentColor,CurrentKind) : CurrentKind == MoleKind.Charge||CurrentKind==MoleKind.King))
             {
                 base.OnTrackingLost();
                 return;
@@ -124,12 +184,51 @@ public class HoleSlot : DefaultObserverEventHandler
         if (currentAnimator != null) currentAnimator.SetTrigger("Defeat");
         Debug.Log($"{name}: Defeat ({currentColor})");
 
-        if (GameManager.Instance != null) GameManager.Instance.AddScore(currentColor);
+        if (GameManager.Instance != null) GameManager.Instance.AddScore(currentColor,SensorGamePolicy.ScoreMultiplier(CurrentKind));
         if (AudioManager.Instance != null) AudioManager.Instance.PlayDefeatSe();
         OnDefeated?.Invoke(currentColor);
-        if (CurrentKind != MoleKind.Charge) WhackSensorGame.Instance?.SendHit(currentColor);
+        if (CurrentKind != MoleKind.Charge&&CurrentKind!=MoleKind.King) WhackSensorGame.Instance?.SendHit(currentColor,CurrentKind);
 
         StartCoroutine(RemoveAfter(defeatRemoveDelay));
+    }
+    public void Weaken()
+    {
+        if(!NeedsSensor)return;
+        weakened=true;
+        if(CurrentKind==MoleKind.Balance)
+        {
+            // The ball and its outline share a skinned mesh with the body.
+            // Remove ball triangles from a private copy; keep the source intact.
+            var renderer=current.GetComponentInChildren<SkinnedMeshRenderer>();
+            if(renderer!=null&&renderer.sharedMesh.isReadable)
+            {
+                var source=renderer.sharedMesh;var vertices=source.vertices;var materials=renderer.sharedMaterials;
+                var bounds=new Bounds();bool found=false;
+                for(int i=0;i<materials.Length;i++)if(materials[i]!=null&&(materials[i].name.StartsWith("BallA")||materials[i].name.StartsWith("BallB")))
+                    foreach(int index in source.GetTriangles(i)){if(!found){bounds=new Bounds(vertices[index],Vector3.zero);found=true;}else bounds.Encapsulate(vertices[index]);}
+                if(found)
+                {
+                    bounds.Expand(bounds.size.magnitude*.12f);removedPropMesh=Instantiate(source);
+                    for(int i=0;i<materials.Length;i++)
+                    {
+                        if(materials[i]==null)continue;
+                        if(materials[i].name.StartsWith("BallA")||materials[i].name.StartsWith("BallB"))removedPropMesh.SetTriangles(new int[0],i);
+                        else if(materials[i].name.StartsWith("Outline"))
+                        {
+                            var triangles=source.GetTriangles(i);var kept=new System.Collections.Generic.List<int>();
+                            for(int t=0;t<triangles.Length;t+=3)if(!bounds.Contains((vertices[triangles[t]]+vertices[triangles[t+1]]+vertices[triangles[t+2]])/3f)){kept.Add(triangles[t]);kept.Add(triangles[t+1]);kept.Add(triangles[t+2]);}
+                            removedPropMesh.SetTriangles(kept,i);
+                        }
+                    }
+                    renderer.sharedMesh=removedPropMesh;
+                }
+            }
+        }
+        WhackSensorGame.Instance?.SetNotice(CurrentKind==MoleKind.Balance?"ボールが落ちた！ 手で叩こう":"目が覚めた！ 手で叩こう");
+    }
+    private void LateUpdate()
+    {
+        if(prop!=null&&(helmetBroken||CurrentKind==MoleKind.Balance&&weakened))prop.localScale=Vector3.zero;
     }
 
     private void Expire()
@@ -143,6 +242,7 @@ public class HoleSlot : DefaultObserverEventHandler
 
         StartCoroutine(RemoveAfter(hideRemoveDelay));
     }
+    public void ExpireNow(){if(IsAlive)Expire();}
 
     // アニメーションが終わるのを待ってから消し、空きに戻す
     private IEnumerator RemoveAfter(float seconds)
@@ -152,6 +252,7 @@ public class HoleSlot : DefaultObserverEventHandler
         if (target != null) Destroy(target);
         if (current == target)
         {
+            if(removedPropMesh!=null){Destroy(removedPropMesh);removedPropMesh=null;}
             current = null;
             currentAnimator = null;
             state = SlotState.Empty;
@@ -168,6 +269,7 @@ public class HoleSlot : DefaultObserverEventHandler
     {
         StopAllCoroutines();
         if (current != null) Destroy(current);
+        if(removedPropMesh!=null){Destroy(removedPropMesh);removedPropMesh=null;}
         current = null;
         currentAnimator = null;
         state = SlotState.Empty;

@@ -4,7 +4,7 @@ import http from 'node:http';
 import {once} from 'node:events';
 import {WebSocket} from 'ws';
 import {attachBridge,validPacket} from '../server/bridge.js';
-import {emptySensors,GestureDetector} from '../public/sensors.js';
+import {emptySensors,GestureDetector,Sensors} from '../public/sensors.js';
 
 function packet(seq=0){const sensors=emptySensors();sensors.acceleration={valid:true,timestampMs:Date.now(),x:0,y:0,z:0};return {type:'sample',version:1,seq,timestampMs:Date.now(),simulated:false,sensors,gestures:[]};}
 async function server(t){const s=http.createServer(),wss=attachBridge(s);s.listen(0,'127.0.0.1');await once(s,'listening');t.after(async()=>{wss.clients.forEach(w=>w.terminate());await new Promise(r=>wss.close(r));await new Promise(r=>s.close(r));});return `ws://127.0.0.1:${s.address().port}/ws`;}
@@ -19,6 +19,17 @@ test('schema preserves valid zero vs unavailable; rejects malformed input',()=>{
 test('gesture detector uses rising edges, hysteresis and cooldown',()=>{
   const d=new GestureDetector();assert.equal(d.update('shake',0,12,0),null);assert.ok(d.update('shake',15,12,1));assert.equal(d.update('shake',20,12,900),null);
   d.update('shake',0,12,1000);assert.ok(d.update('shake',15,12,1001));d.update('shake',0,12,1050);assert.equal(d.update('shake',15,12,1100),null);
+});
+test('resting phone orientation becomes neutral before tilt gameplay',()=>{
+  const previous=globalThis.document;
+  globalThis.document={hidden:false,createElement:tag=>tag==='canvas'?{getContext:()=>({})}:{}};
+  try {
+    const sensors=new Sensors(()=>{});sensors.active=true;sensors.simulated=false;
+    sensors.handleOrientation({alpha:0,beta:80,gamma:12});
+    assert.equal(sensors.values.orientation.relativeBeta,0);assert.equal(sensors.values.orientation.relativeGamma,0);
+    sensors.handleOrientation({alpha:0,beta:115,gamma:12});assert.equal(sensors.values.orientation.relativeBeta,35);
+    assert.equal(sensors.calibrate(),true);sensors.handleOrientation({alpha:0,beta:115,gamma:12});assert.equal(sensors.values.orientation.relativeBeta,0);
+  } finally {if(previous===undefined)delete globalThis.document;else globalThis.document=previous;}
 });
 test('red/blue relay, isolation, sender identity, duplicates, snapshot without gesture replay',async t=>{
   const url=await server(t),receiver=await connect(url,{role:'receiver',room}),other=await connect(url,{role:'receiver',room:'different-room-key-1234'});
