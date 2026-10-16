@@ -29,7 +29,7 @@ const isVector = v => v && ['x','y','z'].every(k=>n(v[k])!==null);
 export class Sensors {
   constructor(onStatus) {
     this.onStatus=onStatus; this.values=emptySensors(); this.detector=new GestureDetector(); this.events=[];
-    this.thresholds={shake:12,tilt:30,voice:0.15}; this.baseline={beta:0,gamma:0}; this.gravity=null;
+    this.thresholds={shake:12,tilt:30,voice:0.15}; this.baseline={beta:0,gamma:0}; this.orientationInitialized=false;this.gravity=null;
     this.jumpDetector=new JumpDetector();this.jumpEnabled=false;
     this.motionProfile='legacy';this.classifier=new MotionClassifier();
     this.circleEnabled=false;this.circleDetector=new CircleDetector();
@@ -101,6 +101,7 @@ export class Sensors {
   handleOrientation(e) {
     if(!this.active||this.simulated) return;
     const beta=n(e.beta), gamma=n(e.gamma);
+    if(!this.orientationInitialized&&beta!==null&&gamma!==null){this.baseline={beta,gamma};this.orientationInitialized=true;}
     this.set('orientation',{alpha:n(e.alpha),beta,gamma,relativeBeta:beta===null?null:((beta-this.baseline.beta+540)%360)-180,relativeGamma:gamma===null?null:gamma-this.baseline.gamma});
     const heading=n(e.webkitCompassHeading) ?? (e.absolute && n(e.alpha)!==null?(360-e.alpha)%360:null);
     this.set('compass',{degrees:heading});

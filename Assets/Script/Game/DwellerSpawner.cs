@@ -30,6 +30,15 @@ public class DwellerSpawner : MonoBehaviour
     [SerializeField] private float redChance = 0.5f;
 
     private Coroutine loop;
+    private int taughtChargeMask;
+    public bool IsAtCapacity
+    {
+        get
+        {
+            int occupied=0;foreach(var slot in slots)if(slot!=null&&(!slot.IsEmpty||WhackSensorGame.Instance!=null&&WhackSensorGame.Instance.IsReserved(slot)))occupied++;
+            return occupied>=maxAlive;
+        }
+    }
 
     private void Start()
     {
@@ -72,6 +81,7 @@ public class DwellerSpawner : MonoBehaviour
         }
         if (s == GameState.Playing && isActiveAndEnabled)
         {
+            taughtChargeMask=0;
             loop = StartCoroutine(SpawnLoop());
         }
     }
@@ -105,7 +115,7 @@ public class DwellerSpawner : MonoBehaviour
         foreach (HoleSlot slot in slots)
         {
             if (slot == null) continue;
-            if (!slot.IsEmpty) alive++;
+            if (!slot.IsEmpty||WhackSensorGame.Instance!=null&&WhackSensorGame.Instance.IsReserved(slot)) alive++;
             else if (slot.IsTracked && (WhackSensorGame.Instance == null || !WhackSensorGame.Instance.IsReserved(slot))) candidates.Add(slot);
         }
         if (alive >= maxAlive || candidates.Count == 0) return;
@@ -113,13 +123,32 @@ public class DwellerSpawner : MonoBehaviour
         // 穴・色・種類・寿命をランダムに決める。int の Random.Range は上限を含まない
         HoleSlot target = candidates[Random.Range(0, candidates.Count)];
         DwellerColor color = Random.value < redChance ? DwellerColor.Red : DwellerColor.Blue;
+        var game=WhackSensorGame.Instance;
+        float elapsed=GameManager.Instance.gameDuration-GameManager.Instance.RemainingTime;
+        bool teach=false;
+        if(game!=null&&elapsed>=8)
+        {
+            if((taughtChargeMask&1)==0&&game.CanSpawn(MoleKind.Charge,DwellerColor.Red)){color=DwellerColor.Red;teach=true;}
+            else if((taughtChargeMask&2)==0&&game.CanSpawn(MoleKind.Charge,DwellerColor.Blue)){color=DwellerColor.Blue;teach=true;}
+        }
         GameObject[] pool = color == DwellerColor.Red ? redPrefabs : bluePrefabs;
         if (pool == null || pool.Length == 0) return;
-        GameObject prefab = pool[Random.Range(0, pool.Length)];
+        var weighted=new List<GameObject>();
+        foreach(var item in pool)
+        {
+            if(item==null)continue;
+            var kind=game!=null?game.Catalog.KindOf(item):MoleKind.Normal;
+            if(kind==MoleKind.Flash||elapsed<8&&kind!=MoleKind.Normal||(kind==MoleKind.Balance||kind==MoleKind.Sleepy)&&elapsed<20||kind==MoleKind.King&&elapsed<35||game!=null&&!game.CanSpawn(kind,color))continue;
+            int weight=kind==MoleKind.Normal?4:kind==MoleKind.Charge?3:kind==MoleKind.King?1:2;
+            for(int i=0;i<weight;i++)weighted.Add(item);
+        }
+        if(weighted.Count==0)return;
+        GameObject prefab=teach?game.Catalog.Prefab(MoleKind.Charge,WhackSensorGame.Team(color)):weighted[Random.Range(0,weighted.Count)];
         float life = Random.Range(lifetimeMin, lifetimeMax);
 
-        if (target.Spawn(prefab, color, life))
+        if (target.Spawn(prefab, color, teach?8:life))
         {
+            if(teach)taughtChargeMask|=color==DwellerColor.Red?1:2;
             Debug.Log($"DwellerSpawner: {target.name} に {prefab.name} ({life:F1} 秒)");
         }
     }

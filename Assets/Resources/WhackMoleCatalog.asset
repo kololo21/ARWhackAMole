@@ -18,3 +18,11 @@ MonoBehaviour:
   chargeBlue: {fileID: 8579242997521168998, guid: 7a45118fc64231f4486cee9b86644c53, type: 3}
   flashRed: {fileID: 7425872639313400893, guid: 02e8675414dd9bd4fa8be573c307845a, type: 3}
   flashBlue: {fileID: 4930590013473716528, guid: 7f65f8e944f9d8d44b83bf95f2f405b7, type: 3}
+  helmetRed: {fileID: 1353928862733856004, guid: da4009d1eff52de41bb663b736d9885f, type: 3}
+  helmetBlue: {fileID: 8606672424665344361, guid: 7f9aa26733d1d504885f0c5c7f0372f3, type: 3}
+  balanceRed: {fileID: 4279660926041392555, guid: d3aec0063d9d97649913526ee5fec9ed, type: 3}
+  balanceBlue: {fileID: 1953543939924256066, guid: fe5be92cc24b0c14399d925e924211ed, type: 3}
+  sleepyRed: {fileID: 1495598354233687369, guid: 1366f0d1252b752418204ec57e8c98ae, type: 3}
+  sleepyBlue: {fileID: 1313659642930115081, guid: bd094bfd4800fdc42872dbd5b62f4a70, type: 3}
+  kingRed: {fileID: 6531624947676867439, guid: f04ad3555b8ec3c4eb211045ac7edf77, type: 3}
+  kingBlue: {fileID: 7713033311959526135, guid: f27c0b89cee87bc4e8890f23cd2761d7, type: 3}
