@@ -108,7 +108,7 @@ namespace WhackAMole.Sensors
         public bool CanSpawn(MoleKind kind,DwellerColor colour)
         {
             var player=Model.Get(Team(colour));
-            return kind==MoleKind.Balance?Model.TiltReady(player,Now):kind==MoleKind.Sleepy?Model.MicrophoneReady(player,Now):kind==MoleKind.Charge||kind==MoleKind.King?Model.Ready(player,Now):kind!=MoleKind.Flash;
+            return kind==MoleKind.Balance?Model.TiltReady(player,Now):kind==MoleKind.Sleepy?Model.MicrophoneReady(player,Now)&&player.Voice.Verified:kind==MoleKind.Charge||kind==MoleKind.King?Model.Ready(player,Now):kind!=MoleKind.Flash;
         }
         private bool AtCapacity()=>FindObjectsByType<DwellerSpawner>(FindObjectsSortMode.None).Any(s=>s.IsAtCapacity);
         public bool IsReserved(HoleSlot hole)=>hole==reserved;

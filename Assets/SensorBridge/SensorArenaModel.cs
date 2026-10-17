@@ -9,6 +9,7 @@ namespace SensorBridge
         public enum FlashPhase { Idle, WaitingForPhones, LeadIn, Visible }
         public sealed class Player
         {
+            public readonly VoiceInputState Voice = new VoiceInputState();
             public string Name;
             public bool Connected, Simulated, CueAck, VibrationSupported, VibrationAccepted;
             public double Charge, Peak, LastPacketMs = -100000, LastGameMs = -100000;
@@ -19,7 +20,7 @@ namespace SensorBridge
             public double LastCircleSeconds;
             public double LastTiltMs=-100000,LastMicMs=-100000,TiltDegrees,MicrophoneRms;
             public long LastQuietSeq=-1,LastVoiceSeq=-1;
-            public double LastVoicePhoneMs=-1,LastVoiceEventMs=-100000;
+            public double LastVoiceEventMs=-100000;
         }
         public sealed class Signal
         {
@@ -52,7 +53,7 @@ namespace SensorBridge
         public void Presence(string name,bool connected)
         {
             var p=Get(name);if(p==null)return;p.Connected=connected;
-            if(!connected){p.LastGameMs=p.LastPacketMs=p.LastTiltMs=p.LastMicMs=p.LastVoiceEventMs=-100000;p.LastSeq=p.LastQuietSeq=p.LastVoiceSeq=-1;p.LastVoicePhoneMs=-1;p.CueAck=false;p.LastCircleSeconds=0;}
+            if(!connected){p.LastGameMs=p.LastPacketMs=p.LastTiltMs=p.LastMicMs=p.LastVoiceEventMs=-100000;p.LastSeq=p.LastQuietSeq=p.LastVoiceSeq=-1;p.CueAck=false;p.LastCircleSeconds=0;p.Voice.Recalibrate();}
         }
         public bool Ingest(SensorPacket packet,double now)
         {
@@ -66,13 +67,12 @@ namespace SensorBridge
             {p.TiltDegrees=Math.Sqrt(orientation.relativeBeta*orientation.relativeBeta+orientation.relativeGamma*orientation.relativeGamma);p.LastTiltMs=packet.receivedAtMs-(packet.timestampMs-orientation.timestampMs);}
             else p.LastTiltMs=-100000;
             var mic=packet.sensors?.microphone;
-            if(mic!=null&&mic.valid&&FreshReading(packet.timestampMs,mic.timestampMs)&&Finite(mic.rms)&&mic.rms>=0)
+            if(mic!=null&&mic.valid&&FreshReading(packet.timestampMs,mic.timestampMs)&&Finite(mic.rms)&&mic.rms>=0&&mic.rms<=1)
             {
                 p.MicrophoneRms=mic.rms;p.LastMicMs=packet.receivedAtMs-(packet.timestampMs-mic.timestampMs);
-                bool voiceEvent=false;
-                if(!MatchBusy&&packet.gestures!=null)foreach(var gesture in packet.gestures)
-                    if(gesture.kind=="voice"&&Finite(gesture.value)&&gesture.value>0&&FreshReading(packet.timestampMs,gesture.timestampMs)&&gesture.timestampMs>p.LastVoicePhoneMs){p.LastVoiceSeq=packet.seq;p.LastVoicePhoneMs=gesture.timestampMs;p.LastVoiceEventMs=packet.receivedAtMs-(packet.timestampMs-gesture.timestampMs);voiceEvent=true;}
-                if(mic.rms<.08&&!voiceEvent)p.LastQuietSeq=packet.seq;
+                if(p.Voice.Observe(packet.seq,p.LastMicMs,mic.rms,MatchBusy))
+                {p.LastVoiceSeq=packet.seq;p.LastVoiceEventMs=p.LastMicMs;}
+                p.LastQuietSeq=p.Voice.QuietSeq;
             }
             else p.LastMicMs=-100000;
             if(g==null||!g.valid||!g.linear||!Finite(g.peakAcceleration)||g.peakAcceleration<0||!Finite(g.windowMs)||g.windowMs<0||g.windowMs>250||!Finite(g.circleSeconds)||g.circleSeconds<0||g.circleSeconds>g.windowMs/1000+.001||packet.timestampMs-g.timestampMs<0||packet.timestampMs-g.timestampMs>500)return true;
@@ -144,7 +144,7 @@ namespace SensorBridge
         public void Reset()
         {
             Match=MatchPhase.Idle;Flash=FlashPhase.Idle;Red.Charge=Blue.Charge=0;Red.Peak=Blue.Peak=0;Red.ShakeCount=Blue.ShakeCount=0;Red.CueAck=Blue.CueAck=false;Result="リセットしました";ActionMessage="";FlashMessage="瞬間表示は待機中";
-            Red.LastQuietSeq=Blue.LastQuietSeq=Red.LastVoiceSeq=Blue.LastVoiceSeq=-1;
+            Red.LastQuietSeq=Blue.LastQuietSeq=Red.LastVoiceSeq=Blue.LastVoiceSeq=-1;Red.Voice.ResetDetection();Blue.Voice.ResetDetection();
         }
     }
 }

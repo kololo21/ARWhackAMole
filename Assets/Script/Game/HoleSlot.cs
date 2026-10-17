@@ -68,7 +68,7 @@ public class HoleSlot : DefaultObserverEventHandler
             var player=game?.Model.Get(WhackSensorGame.Team(currentColor));
             if(CurrentKind==MoleKind.Helmet)action=helmetBroken?"装甲破壊！ 手を戻してもう1回":"手を戻しながら2回叩く";
             else if(CurrentKind==MoleKind.Balance)action=weakened?"ボールが落ちた！ 叩こう":$"{game.balanceTiltDegrees:0}°傾けてキープ {tiltProgress/game.balanceHoldSeconds:P0}";
-            else if(CurrentKind==MoleKind.Sleepy)action=weakened?"起きた！ 叩こう":player==null||!game.Model.MicrophoneReady(player,WhackSensorGame.Now)?"スマホのマイクを許可":player.LastQuietSeq<=SpawnSensorSeq?"一度静かにしてから声を出す":"声で起こしてから叩く";
+            else if(CurrentKind==MoleKind.Sleepy)action=weakened?"起きた！ 叩こう":player==null||!game.Model.MicrophoneReady(player,WhackSensorGame.Now)?"スマホのマイクを許可":!player.Voice.Calibrated?"周囲音を測定中…":$"{(player.Voice.Armed?"声で起こそう":"一度静かにしてから声を出す")}\n声 {player.MicrophoneRms:0.000} / 目安 {player.Voice.Threshold:0.000}";
             else if(CurrentKind==MoleKind.Charge||CurrentKind==MoleKind.King)
             {
                 double cost=game==null?(CurrentKind==MoleKind.King?75:50):SensorGamePolicy.Cost(game.Model,CurrentKind);
@@ -110,7 +110,7 @@ public class HoleSlot : DefaultObserverEventHandler
             var game=WhackSensorGame.Instance;var player=game.Model.Get(WhackSensorGame.Team(currentColor));
             bool target=game.SensorTarget(currentColor)==this;
             if(!target||!IsTracked||!game.Model.TiltReady(player,WhackSensorGame.Now))tiltProgress=0;
-            if(target&&!wasSensorTarget){SpawnSensorSeq=player.LastSeq;tiltProgress=0;}
+            if(target&&!wasSensorTarget){SpawnSensorSeq=player.LastSeq;tiltProgress=0;if(CurrentKind==MoleKind.Sleepy){player.Voice.ResetDetection();player.LastQuietSeq=-1;}}
             if(player.LastSeq<SpawnSensorSeq)SpawnSensorSeq=player.LastSeq;
             wasSensorTarget=target;
             if(target&&IsTracked&&CurrentKind==MoleKind.Balance&&player.LastSeq>SpawnSensorSeq&&game.Model.TiltReady(player,WhackSensorGame.Now))
