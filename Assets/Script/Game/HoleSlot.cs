@@ -145,6 +145,7 @@ public class HoleSlot : DefaultObserverEventHandler
         interactionFeedback=null;
         SpawnSensorSeq=WhackSensorGame.Instance?.Model.Get(WhackSensorGame.Team(color)).LastSeq??-1;
         prop=null;foreach(var t in current.GetComponentsInChildren<Transform>())if(t.name=="prop"){prop=t;break;}
+        if(CurrentKind==MoleKind.Helmet&&prop!=null)current.AddComponent<HelmetBreakEffect>().Prepare(prop);
         state = SlotState.Alive;
         if (flash && currentAnimator != null) { currentAnimator.Play("Idle", 0, 0); currentAnimator.Update(0); }
         return true;
@@ -173,6 +174,7 @@ public class HoleSlot : DefaultObserverEventHandler
             {
                 if(CurrentKind==MoleKind.Helmet&&(!helmetBroken||trackedAge<.12f))
                 {
+                    if(!helmetBroken&&prop!=null)current.GetComponent<HelmetBreakEffect>().Play(prop);
                     helmetBroken=true;ShowInteractionFeedback("装甲破壊！ 手を戻してもう1回");
                     UpdateLostVisibility();return;
                 }
@@ -266,7 +268,7 @@ public class HoleSlot : DefaultObserverEventHandler
     {
         if(IsTracked)RememberDisplayPose();
         else if(KeepDisplay)transform.SetPositionAndRotation(lastTrackedPosition,lastTrackedRotation);
-        if(prop!=null&&(helmetBroken||CurrentKind==MoleKind.Balance&&weakened))prop.localScale=Vector3.zero;
+        if(prop!=null&&CurrentKind==MoleKind.Balance&&weakened)prop.localScale=Vector3.zero;
     }
 
     private void Expire()
