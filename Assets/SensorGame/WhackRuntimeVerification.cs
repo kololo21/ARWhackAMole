@@ -19,6 +19,7 @@ public sealed class WhackRuntimeVerification : MonoBehaviour
     private DwellerSpawner[] spawners;
     private int spends;
     private RenderTexture batchTarget;
+    private Vector3 retainedHelmetPosition,retainedChargePosition;
     private void Start()
     {
         game=GetComponent<WhackSensorGame>();started=phaseAt=WhackSensorGame.Now;
@@ -41,9 +42,9 @@ public sealed class WhackRuntimeVerification : MonoBehaviour
         File.WriteAllText(Path.Combine(output,"sensor-integration-result.json"),"{\"passed\":false,\"status\":\"running\"}");
     }
     private void Check(bool yes,string message){if(!yes)throw new Exception(message);}
-    private void Screenshot(string filename)
+    private void Screenshot(string filename,bool renderNow=false)
     {
-        if(!Application.isBatchMode){ScreenCapture.CaptureScreenshot(Path.Combine(output,filename));return;}
+        if(!Application.isBatchMode&&!renderNow){ScreenCapture.CaptureScreenshot(Path.Combine(output,filename));return;}
         WhackSensorGame.SceneObject("SensorGameHUD").GetComponent<SensorGameHud>().Refresh(game.Model.ActionMessage);
         // Batch mode has no Game view to service ScreenCapture. Render the real UI
         // through the verification camera, then restore its overlay configuration.
@@ -94,6 +95,8 @@ public sealed class WhackRuntimeVerification : MonoBehaviour
                 Cover(0);Cover(0);Check(gm.RedScore==10&&m.Red.Charge==0,"upstream normal 10 points, offline charge-free and exactly once");
                 game.Holes[1].Spawn(game.Catalog.chargeBlue,DwellerColor.Blue,30);m.Blue.Charge=0;
                 Cover(1);Check(gm.BlueScore==0&&game.Holes[1].IsAlive,"insufficient charge preserves mole");
+                CheckRetainedDisplay(game.Holes[1]);
+                Check(game.Holes[1].Instruction.Contains("チャージ不足"),"failed charge hit clearly says insufficient charge");
                 m.Blue.Charge=49;Found(1);Cover(1);
                 Check(gm.BlueScore==0&&game.Holes[1].IsAlive&&m.Blue.Charge==49&&spends==0,"49 charge cannot defeat or spend");
                 m.Blue.Charge=60;Found(1);Cover(1);Cover(1);
@@ -166,12 +169,30 @@ public sealed class WhackRuntimeVerification : MonoBehaviour
                 foreach(var spawner in spawners)spawner.gameObject.SetActive(false);
                 gm.StartGame();ClearBoard();
                 Check(game.Holes[0].Spawn(game.Catalog.helmetRed,DwellerColor.Red,15),"helmet spawn");
-                Cover(0);Cover(0);Check(game.Holes[0].IsAlive&&gm.RedScore==0,"helmet first hit breaks armour without points");Found(0);
+                retainedHelmetPosition=game.Holes[0].transform.position;
+                Cover(0);Cover(0);Check(game.Holes[0].IsAlive&&gm.RedScore==0,"helmet first hit breaks armour without points");
+                CheckRetainedDisplay(game.Holes[0]);
+                Check(game.Holes[0].Instruction.Contains("装甲破壊"),"first helmet hit says armour broken");
+                Check(game.Holes[1].Spawn(game.Catalog.chargeBlue,DwellerColor.Blue,15),"feedback charge mole spawn");m.Blue.Charge=0;
+                retainedChargePosition=game.Holes[1].transform.position;Cover(1);Cover(1);CheckRetainedDisplay(game.Holes[1]);
+                Check(!game.Holes[1].Spawn(game.Catalog.normalBlue,DwellerColor.Blue,15),"retained display cannot spawn under a covered marker");
+                game.Holes[0].transform.position+=Vector3.one;game.Holes[1].transform.position+=Vector3.one;
                 phase=9;phaseAt=now;
             }
             else if(phase==9&&now-phaseAt>200)
             {
-                Screenshot("character-helmet.png");Cover(0);Cover(0);Check(gm.RedScore==20,"helmet second hit scores once");
+                CheckRetainedDisplay(game.Holes[0]);CheckRetainedDisplay(game.Holes[1]);
+                Check(Vector3.Distance(game.Holes[0].transform.position,retainedHelmetPosition)<.001f&&Vector3.Distance(game.Holes[1].transform.position,retainedChargePosition)<.001f,"covered holes keep their last tracked poses");
+                WhackSensorGame.SceneObject("SensorGameHUD").GetComponent<SensorGameHud>().Refresh("");
+                foreach(int i in new[]{0,1})Check(WhackSensorGame.SceneObject("Instruction_"+game.Holes[i].name).activeSelf,"covered enemy instructions remain visible");
+                Screenshot("hole-feedback-retained.png",true);Screenshot("character-helmet.png");
+                m.Blue.Charge=100;Cover(1);Check(gm.BlueScore==0&&game.Holes[1].IsAlive&&m.Blue.Charge==100,"charging under the hand does not count as another hit");
+                game.Holes[1].ExpireNow();CheckRetainedDisplay(game.Holes[1]);Check(gm.BlueScore==0,"expiry under the hand does not award points");
+                game.Holes[1].Clear();Found(1);Found(0);phase=21;phaseAt=now;
+            }
+            else if(phase==21&&now-phaseAt>200)
+            {
+                Cover(0);Cover(0);Check(gm.RedScore==20,"helmet second hit scores once");CheckRetainedDisplay(game.Holes[0]);
                 game.Holes[0].Clear();Found(0);game.Holes[0].Spawn(game.Catalog.balanceBlue,DwellerColor.Blue,15);
                 Cover(0);Check(game.Holes[0].IsAlive&&gm.BlueScore==0,"balance blocks cover before tilt");Found(0);
                 _=game.Receiver.SendFeedback("blue","test","verify-tilt",1000);phase=10;phaseAt=now;
@@ -219,12 +240,16 @@ public sealed class WhackRuntimeVerification : MonoBehaviour
                 var hole=game.Holes.First(h=>h.IsAlive&&h.CurrentKind==MoleKind.Flash);int score=hole.CurrentColor==DwellerColor.Red?gm.RedScore:gm.BlueScore;
                 var color=hole.CurrentColor;Cover(Array.IndexOf(game.Holes,hole));Cover(Array.IndexOf(game.Holes,hole));
                 Check((color==DwellerColor.Red?gm.RedScore:gm.BlueScore)==score+30,"speed cover scores 30 once");
-                gm.EndGame();phase=16;phaseAt=now;
+                gm.EndGame();for(int i=0;i<3;i++)Cover(i);
+                Check(game.Holes.All(h=>!h.HasDisplayPose&&!h.HasInteractionFeedback),"result clears retained poses and interaction feedback");
+                phase=16;phaseAt=now;
             }
             else if(phase==16&&gm.State==GameState.Result&&now-phaseAt>100)
             {
                 WhackSensorGame.SceneObject("RetryButton").GetComponent<Button>().onClick.Invoke();
                 Check(game.IsPlaying&&game.Holes.All(h=>!h.IsAlive)&&gm.RedScore==0&&gm.BlueScore==0&&m.Red.Charge==0&&m.Blue.Charge==0&&game.FlashHole==null,"all character and warning states reset on retry");
+                Check(game.Holes.All(h=>!h.HasDisplayPose),"retry does not show holes before reacquisition");
+                Debug.Log("WHACK_RETAINED_HOLE_CHECKS_PASSED: visible rejected hits/armour, retained poses/labels, no covered re-hit/spawn, expiry and retry reset");
                 File.WriteAllText(Path.Combine(output,"sensor-integration-result.json"),"{\"passed\":true,\"scene\":\"Assets/Scenes/SampleScene.unity\",\"syntheticSensors\":true,\"syntheticTracking\":true,\"chargeCost\":"+m.ChargeCost+",\"kingCost\":"+m.KingChargeCost+",\"characters\":7,\"helmet\":true,\"balance\":true,\"sleepy\":true,\"pcSpeedWarning\":true,\"redCycles\":"+redCycles+",\"blueCycles\":"+blueCycles+",\"actualCameraTested\":false}");
                 Debug.Log("WHACK_SENSOR_INTEGRATION_PASSED: all seven kinds, helmet two hits, held tilt, voice targeting, 50/75 charge, score multipliers, PC warning/expiry/pre-cover, retry, random spawn, contest and BGM");EditorApplication.isPlaying=false;enabled=false;
             }
@@ -232,6 +257,12 @@ public sealed class WhackRuntimeVerification : MonoBehaviour
         catch(Exception e){File.WriteAllText(Path.Combine(output,"sensor-integration-result.json"),"{\"passed\":false,\"phase\":"+phase+",\"error\":\""+e.Message.Replace("\\","\\\\").Replace("\"","\\\"")+"\"}");Debug.LogError("WHACK_SENSOR_INTEGRATION_FAILED: "+e);EditorApplication.isPlaying=false;enabled=false;}
     }
     private void ClearBoard(){for(int i=0;i<game.Holes.Length;i++){game.Holes[i].Clear();Found(i);}}
+    private void CheckRetainedDisplay(HoleSlot hole)
+    {
+        Check(!hole.IsTracked&&hole.HasDisplayPose,"display retention does not fake tracking");
+        var renderers=hole.GetComponentsInChildren<Renderer>(true);
+        Check(renderers.Length>0&&renderers.All(r=>r.enabled),"hole and mole renderers stay enabled while covered");
+    }
     private void CheckFlashPreCoverBoundaries()
     {
         var model=game.Model;double lead=model.WarningLeadMs;

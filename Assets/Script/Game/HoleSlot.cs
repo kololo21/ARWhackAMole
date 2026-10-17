@@ -43,6 +43,14 @@ public class HoleSlot : DefaultObserverEventHandler
     private float lifetime;
     private bool helmetBroken,weakened,wasSensorTarget;
     private float tiltProgress,trackedAge;
+    private bool hasDisplayPose;
+    private Vector3 lastTrackedPosition;
+    private Quaternion lastTrackedRotation;
+    private string interactionFeedback;
+    private float feedbackUntil;
+    private bool KeepDisplay => hasDisplayPose && GameManager.Instance != null && GameManager.Instance.State == GameState.Playing;
+    public bool HasDisplayPose => IsTracked || KeepDisplay;
+    public bool HasInteractionFeedback => !string.IsNullOrEmpty(interactionFeedback) && Time.unscaledTime < feedbackUntil;
     private Transform prop;
     private Mesh removedPropMesh;
     private static long nextSpawnOrder;
@@ -67,6 +75,7 @@ public class HoleSlot : DefaultObserverEventHandler
                 action=player!=null&&player.Charge>=cost?$"叩こう！ チャージ{cost:0}消費":$"腕回しで準備：あと{Math.Ceiling(cost-(player?.Charge??0)):0}";
             }
             if(NeedsSensor&&game!=null&&game.SensorTarget(currentColor)!=this)action="同じ色の先の敵を解除しよう";
+            if(HasInteractionFeedback)action=interactionFeedback;
             int points=(GameManager.Instance==null?10:currentColor==DwellerColor.Red?GameManager.Instance.redPoint:GameManager.Instance.bluePoint)*SensorGamePolicy.ScoreMultiplier(CurrentKind);
             return $"{SensorGamePolicy.Name(CurrentKind)} {(currentColor==DwellerColor.Red?"R":"B")} +{points}\n{action}";
         }
@@ -133,6 +142,7 @@ public class HoleSlot : DefaultObserverEventHandler
         CurrentKind = flash ? MoleKind.Flash : WhackSensorGame.Instance!=null&&WhackSensorGame.Instance.Catalog!=null?WhackSensorGame.Instance.Catalog.KindOf(prefab):MoleKind.Normal;
         lifetime = flash?life:Mathf.Max(life,SensorGamePolicy.MinimumLifetime(CurrentKind));
         helmetBroken=weakened=wasSensorTarget=false;tiltProgress=0;SpawnOrder=++nextSpawnOrder;SpawnTimeMs=WhackSensorGame.Now;
+        interactionFeedback=null;
         SpawnSensorSeq=WhackSensorGame.Instance?.Model.Get(WhackSensorGame.Team(color)).LastSeq??-1;
         prop=null;foreach(var t in current.GetComponentsInChildren<Transform>())if(t.name=="prop"){prop=t;break;}
         state = SlotState.Alive;
@@ -145,6 +155,7 @@ public class HoleSlot : DefaultObserverEventHandler
         base.OnTrackingFound();   // 隠れていた穴やキャラを表示する
         IsTracked = true;
         trackedAge=0;
+        RememberDisplayPose();
     }
 
     protected override void OnTrackingLost()
@@ -162,25 +173,50 @@ public class HoleSlot : DefaultObserverEventHandler
             {
                 if(CurrentKind==MoleKind.Helmet&&(!helmetBroken||trackedAge<.12f))
                 {
-                    helmetBroken=true;sensors?.SetNotice("装甲を壊した！ 手を戻して、もう一度叩こう");
-                    base.OnTrackingLost();return;
+                    helmetBroken=true;ShowInteractionFeedback("装甲破壊！ 手を戻してもう1回");
+                    UpdateLostVisibility();return;
                 }
-                if(NeedsSensor){sensors?.SetNotice(Instruction.Replace("\n","："));base.OnTrackingLost();return;}
+                if(NeedsSensor){ShowInteractionFeedback(Instruction.Split('\n')[1]);UpdateLostVisibility();return;}
             }
             if (GameManager.Instance == null || GameManager.Instance.State != GameState.Playing || GameManager.Instance.SensorsPaused || (sensors != null ? !sensors.TryAuthorizeDefeat(currentColor,CurrentKind) : CurrentKind == MoleKind.Charge||CurrentKind==MoleKind.King))
             {
-                base.OnTrackingLost();
+                if(GameManager.Instance!=null&&GameManager.Instance.State==GameState.Playing&&!GameManager.Instance.SensorsPaused)
+                {
+                    var player=sensors?.Model.Get(WhackSensorGame.Team(currentColor));
+                    ShowInteractionFeedback(player==null||!sensors.Model.Ready(player,WhackSensorGame.Now)?"未撃破：スマホの送信を確認":"チャージ不足！ 腕回しで準備");
+                }
+                UpdateLostVisibility();
                 return;
             }
             Defeat();
             return;
         }
-        base.OnTrackingLost();   // それ以外は普通に隠す
+        UpdateLostVisibility();
+    }
+
+    private void ShowInteractionFeedback(string message)
+    {
+        interactionFeedback=message;feedbackUntil=Time.unscaledTime+2;
+        WhackSensorGame.Instance?.SetNotice(message);
+    }
+
+    private void RememberDisplayPose()
+    {
+        hasDisplayPose=true;lastTrackedPosition=transform.position;lastTrackedRotation=transform.rotation;
+    }
+
+    private void UpdateLostVisibility()
+    {
+        // Display is independent of tracking: keeping the hole visible must not
+        // count as reacquisition or allow another hit / spawn under the hand.
+        if(KeepDisplay)OnTargetLost?.Invoke();
+        else base.OnTrackingLost();
     }
 
     private void Defeat()
     {
         state = SlotState.Leaving;
+        interactionFeedback=null;
         if (currentAnimator != null) currentAnimator.SetTrigger("Defeat");
         Debug.Log($"{name}: Defeat ({currentColor})");
 
@@ -194,7 +230,7 @@ public class HoleSlot : DefaultObserverEventHandler
     public void Weaken()
     {
         if(!NeedsSensor)return;
-        weakened=true;
+        weakened=true;interactionFeedback=null;
         if(CurrentKind==MoleKind.Balance)
         {
             // The ball and its outline share a skinned mesh with the body.
@@ -228,6 +264,8 @@ public class HoleSlot : DefaultObserverEventHandler
     }
     private void LateUpdate()
     {
+        if(IsTracked)RememberDisplayPose();
+        else if(KeepDisplay)transform.SetPositionAndRotation(lastTrackedPosition,lastTrackedRotation);
         if(prop!=null&&(helmetBroken||CurrentKind==MoleKind.Balance&&weakened))prop.localScale=Vector3.zero;
     }
 
@@ -263,6 +301,9 @@ public class HoleSlot : DefaultObserverEventHandler
     private void HandleGameState(GameState s)
     {
         if (s != GameState.Playing) Clear();
+        hasDisplayPose=IsTracked;
+        if(IsTracked)RememberDisplayPose();
+        else base.OnTrackingLost();
     }
 
     public void Clear()
@@ -273,6 +314,7 @@ public class HoleSlot : DefaultObserverEventHandler
         current = null;
         currentAnimator = null;
         state = SlotState.Empty;
+        interactionFeedback=null;
     }
 
     [ContextMenu("Debug Spawn")]

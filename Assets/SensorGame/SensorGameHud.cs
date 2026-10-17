@@ -171,7 +171,7 @@ namespace WhackAMole.Sensors
             {
                 var hole=entry.Key;var text=entry.Value;var box=(RectTransform)text.transform.parent;
                 bool warning=game.FlashWarning&&game.FlashHole==hole;
-                bool visible=game.IsPlaying&&camera!=null&&hole.IsTracked&&(hole.IsAlive||warning);
+                bool visible=game.IsPlaying&&camera!=null&&hole.HasDisplayPose&&(hole.IsAlive||warning);
                 if(!visible){box.gameObject.SetActive(false);continue;}
                 var position=hole.transform.position;
                 if(!warning&&hole.Current!=null)
@@ -193,7 +193,7 @@ namespace WhackAMole.Sensors
                 occupied.Add(new Rect(x-195,y,390,84));box.anchoredPosition=new Vector2(x,y);
                 box.gameObject.SetActive(true);
                 text.text=warning?$"スピード予告 {(game.FlashColour==DwellerColor.Red?"R":"B")}\nあと{game.FlashSeconds:0.0}秒・出てから叩こう":hole.Instruction;
-                text.color=warning?new Color(1,.85f,.3f):hole.CurrentColor==DwellerColor.Red?new Color(1,.55f,.5f):new Color(.5f,.75f,1);
+                text.color=warning||hole.HasInteractionFeedback?new Color(1,.85f,.3f):hole.CurrentColor==DwellerColor.Red?new Color(1,.55f,.5f):new Color(.5f,.75f,1);
                 box.localScale=Vector3.one*(warning?1+.025f*Mathf.Sin(Time.unscaledTime*10):1);
             }
         }
