@@ -24,7 +24,7 @@ const handler = async (req,res) => {
       if (target.length > 2048 || !/^https?:\/\//.test(target)) { res.writeHead(400); return res.end('Invalid URL'); }
       res.setHeader('Content-Type','image/svg+xml'); return res.end(await QRCode.toString(target,{type:'svg',margin:2}));
     }
-    const pathname = url.pathname === '/' ? '/index.html' : url.pathname === '/monitor' ? '/monitor.html' : url.pathname === '/lab' ? '/lab.html' : url.pathname;
+    const pathname = url.pathname === '/' ? '/index.html' : url.pathname === '/monitor' ? '/monitor.html' : url.pathname === '/diagnostics' ? '/diagnostics.html' : url.pathname === '/lab' ? '/lab.html' : url.pathname;
     const path = resolve(root, '.' + decodeURIComponent(pathname));
     if (!path.startsWith(root) || !types[extname(path)]) { res.writeHead(404); return res.end('Not found'); }
     res.setHeader('Content-Type',types[extname(path)]);

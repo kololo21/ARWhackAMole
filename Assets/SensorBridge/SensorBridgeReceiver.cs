@@ -108,7 +108,7 @@ namespace SensorBridge
         // true means sent to the relay, not that phone hardware actually vibrated.
         public async Task<bool> SendFeedback(string player, string kind = "hit", string message = "", double durationMs = 1500, string id = null)
         {
-            if ((player != "red" && player != "blue") || (kind != "hit" && kind != "ready" && kind != "error" && kind != "test" && kind != "warning" && kind != "countdown" && kind != "contest") || (message ?? "").Length > 140 || double.IsNaN(durationMs) || durationMs < 0 || durationMs > 15000) return false;
+            if ((player != "red" && player != "blue") || (kind != "calibrate" && kind != "hit" && kind != "ready" && kind != "error" && kind != "test" && kind != "warning" && kind != "countdown" && kind != "contest") || (message ?? "").Length > 140 || double.IsNaN(durationMs) || durationMs < 0 || durationMs > 15000) return false;
             var command = new FeedbackCommand { player=player,kind=kind,message=message??"",durationMs=durationMs,id=id??Guid.NewGuid().ToString("N") };
             var payload = Encoding.UTF8.GetBytes(JsonUtility.ToJson(command));
             await feedbackSend.WaitAsync();

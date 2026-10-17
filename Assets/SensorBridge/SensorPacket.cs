@@ -11,7 +11,7 @@ namespace SensorBridge
     [Serializable] public class MicrophoneReading { public bool valid; public double timestampMs; public float rms; }
     [Serializable] public class TouchReading { public bool valid; public double timestampMs; public float x, y, pressure; public int count; }
     [Serializable] public class GameMotionReading { public bool valid,linear,circleActive; public double timestampMs,windowMs,peakAcceleration,circleSeconds,shakeAgeMs,shakeSpanMs; public int shakeVersion,shakeCount; }
-    [Serializable] public class FeedbackAck { public string type,player,id; public bool enabled,screenVisible,vibrationSupported,vibrationAccepted; public double receivedAtMs; }
+    [Serializable] public class FeedbackAck { public string type,player,id; public bool enabled,screenVisible,vibrationSupported,vibrationAccepted,applied; public double receivedAtMs; }
     [Serializable] public class FeedbackCommand { public string type="feedback",player,kind,id,message; public double durationMs; }
     [Serializable] public class SensorValues
     {

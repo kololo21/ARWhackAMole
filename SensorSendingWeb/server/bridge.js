@@ -76,16 +76,17 @@ export function attachBridge(server) {
       }
       if (p.type === 'ping' && finite(p.timestampMs)) return send(ws, {type:'pong', timestampMs:p.timestampMs, serverTimeMs:now});
       if(joined.role==='receiver'&&p.type==='feedback'){
-        if(!['red','blue'].includes(p.player)||!['hit','ready','error','test','warning','countdown','contest'].includes(p.kind)||p.message!==undefined&&(typeof p.message!=='string'||p.message.length>140)||p.durationMs!==undefined&&(!finite(p.durationMs)||p.durationMs<0||p.durationMs>15000)||p.id!==undefined&&!/^[A-Za-z0-9_-]{1,64}$/.test(p.id))return ws.close(1008,'Invalid feedback');
-        if(now-(lastFeedback.get(p.player)??0)<200&&!['warning','countdown','contest'].includes(p.kind))return;
+        if(!['red','blue'].includes(p.player)||!['hit','ready','error','test','warning','countdown','contest','calibrate'].includes(p.kind)||p.message!==undefined&&(typeof p.message!=='string'||p.message.length>140)||p.durationMs!==undefined&&(!finite(p.durationMs)||p.durationMs<0||p.durationMs>15000)||p.id!==undefined&&!/^[A-Za-z0-9_-]{1,64}$/.test(p.id))return ws.close(1008,'Invalid feedback');
+        if(now-(lastFeedback.get(p.player)??0)<200&&!['warning','countdown','contest','calibrate'].includes(p.kind))return;
         lastFeedback.set(p.player,now);
         const sender=joined.roomState.senders.get(p.player);
         if(sender)send(sender,{type:'feedback',kind:p.kind,player:p.player,id:p.id??randomUUID(),message:p.message??'',durationMs:p.durationMs??1500});
         return;
       }
       if(joined.role==='sender'&&p.type==='feedbackAck'){
+        if(p.applied!==undefined&&typeof p.applied!=='boolean')return ws.close(1008,'Invalid calibration acknowledgement');
         if(!/^[A-Za-z0-9_-]{1,64}$/.test(p.id??'')||['enabled','screenVisible','vibrationSupported','vibrationAccepted'].some(k=>typeof p[k]!=='boolean'))return ws.close(1008,'Invalid feedback acknowledgement');
-        broadcast(joined.roomState,{type:'feedbackAck',player:joined.player,id:p.id,enabled:p.enabled,screenVisible:p.screenVisible,vibrationSupported:p.vibrationSupported,vibrationAccepted:p.vibrationAccepted,receivedAtMs:now});return;
+        broadcast(joined.roomState,{type:'feedbackAck',player:joined.player,id:p.id,enabled:p.enabled,screenVisible:p.screenVisible,vibrationSupported:p.vibrationSupported,vibrationAccepted:p.vibrationAccepted,applied:p.applied===true,receivedAtMs:now});return;
       }
       if (joined.role !== 'sender' || !validPacket(p)) return ws.close(1008, 'Invalid sample');
       if (p.seq <= lastSeq) return;

@@ -8,7 +8,7 @@ for(const dir of ['public','server','scripts','tests'])for(const name of await r
   if(name.endsWith('.js')){execFileSync(process.execPath,['--check',resolve(root,dir,name)]);count++;}
 }
 for(const path of ['package.json','package-lock.json'])JSON.parse(await readFile(resolve(root,path),'utf8'));
-for(const path of ['public/index.html','public/monitor.html','public/lab.html']){
+for(const path of (await readdir(resolve(root,'public'))).filter(name=>name.endsWith('.html')).map(name=>'public/'+name)){
   const html=await readFile(resolve(root,path),'utf8');
   for(const match of html.matchAll(/(?:src|href)="(\/[^"?#]+\.(?:js|css))"/g))await readFile(resolve(root,'public',match[1].slice(1)));
 }

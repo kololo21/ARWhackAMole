@@ -1,20 +1,23 @@
 import {Connection,fmt} from './transport.js';
 import {Sensors} from './sensors.js';
 import {plot,appendEvents} from './charts.js';
+import {applyCalibration} from './controller-command.js';
 import {Feedback} from './feedback.js';
 const $=id=>document.getElementById(id), params=new URLSearchParams(location.hash.slice(1));
 $('room').value=params.get('room')??'';if(['red','blue'].includes(params.get('player'))) $('player').value=params.get('player');
 $('secureNotice').hidden=isSecureContext;
+const controllerLink=$('controllerLink');if(controllerLink)controllerLink.href='/#'+new URLSearchParams({room:$('room').value,player:$('player').value});
 $('labLink').href='/lab#'+new URLSearchParams({room:$('room').value,player:$('player').value});
 const feedback=new Feedback(text=>{$('feedbackStatus').textContent=text;});
 $('camera').disabled=true;$('microphone').disabled=true;
 const statusIds={motion:'motionStatus',orientation:'orientationStatus',light:'lightStatus',cameraBrightness:'cameraStatus',microphone:'microphoneStatus'};
 let sensors=new Sensors((name,state)=>{$(statusIds[name]).textContent=state;}),running=false,seq=0,sent=0,timer,wake,lastPing=0,history=[];
 const statuses={connecting:'接続中…',connected:'送信できます',reconnecting:'再接続中…',disconnected:'未接続',occupied:'このチームは使用中',invalid:'ルーム・送信形式を確認'};
-let cueTimer;
+let cueTimer;const calibrationCommands=new Set();
 const connection=new Connection(p=>{
   if(p.type==='pong')$('rtt').textContent=fmt(Date.now()-p.timestampMs,0);
   if(p.type==='feedback'){
+    if(p.kind==='calibrate'){const applied=applyCalibration(p,sensors,calibrationCommands);connection.send({type:'feedbackAck',id:p.id,enabled:true,screenVisible:!document.hidden,vibrationSupported:false,vibrationAccepted:false,applied});return;}
     const enabled=$('feedbackEnabled').checked;
     const result=enabled?feedback.show(p.kind):null;
     if(enabled&&!document.hidden){$('gameCue').hidden=false;$('gameCue').textContent=p.message||({warning:'まもなく瞬間出現！',contest:'5秒間、スマホを振ってください！',countdown:'シェイク勝負の準備'})[p.kind]||'Unityからの合図';$('gameCue').dataset.kind=p.kind;clearTimeout(cueTimer);cueTimer=setTimeout(()=>{$('gameCue').hidden=true;},Math.min(p.durationMs||1500,15000));}
