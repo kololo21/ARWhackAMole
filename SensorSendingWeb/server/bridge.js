@@ -1,5 +1,6 @@
 import { WebSocketServer, WebSocket } from 'ws';
 import {randomUUID} from 'node:crypto';
+import {SHAKE_MIN_CYCLE_MS,SHAKE_MAX_CYCLE_MS} from '../public/shake-cycle.js';
 
 const object = x => x && typeof x === 'object' && !Array.isArray(x);
 const finite = x => typeof x === 'number' && Number.isFinite(x);
@@ -22,9 +23,12 @@ export function validPacket(p) {
     if(!object(game)||typeof game.valid!=='boolean'||!finite(game.timestampMs)||!finite(game.windowMs)||game.windowMs<0||game.windowMs>15000||typeof game.circleActive!=='boolean'||typeof game.linear!=='boolean'||!finite(game.circleSeconds)||game.circleSeconds<0||game.circleSeconds>game.windowMs/1000+.001)return false;
     if(game.peakAcceleration!==null&&(!finite(game.peakAcceleration)||game.peakAcceleration<0||game.peakAcceleration>10000))return false;
     if(game.valid&&(!game.linear||game.peakAcceleration===null||game.windowMs>250))return false;
+    if(game.circleVersion!==undefined||game.circleDegrees!==undefined){
+      if(game.circleVersion!==1||!finite(game.circleDegrees)||game.circleDegrees<0||game.circleDegrees>game.circleSeconds*10000+.001||!game.valid&&game.circleDegrees!==0)return false;
+    }
     if(game.shakeVersion!==undefined||game.shakeCount!==undefined){
       if(game.shakeVersion!==1||!Number.isInteger(game.shakeCount)||game.shakeCount<0||game.shakeCount>1||!finite(game.shakeAgeMs)||game.shakeAgeMs<0||game.shakeAgeMs>game.windowMs||!finite(game.shakeSpanMs))return false;
-      if(game.shakeCount?(!game.valid||game.shakeSpanMs<600||game.shakeSpanMs>2000):(game.shakeAgeMs!==0||game.shakeSpanMs!==0))return false;
+      if(game.shakeCount?(!game.valid||game.shakeSpanMs<SHAKE_MIN_CYCLE_MS||game.shakeSpanMs>SHAKE_MAX_CYCLE_MS):(game.shakeAgeMs!==0||game.shakeSpanMs!==0))return false;
     }
   }
   return p.gestures.every(g => object(g) && ['shake','tilt','voice','tap','jump','circle'].includes(g.kind) && finite(g.value) && finite(g.timestampMs));
@@ -92,7 +96,7 @@ export function attachBridge(server) {
       if (p.seq <= lastSeq) return;
       lastSeq = p.seq;
       const out = {type:'sample', version:1, player:joined.player, seq:p.seq, timestampMs:p.timestampMs, receivedAtMs:now, simulated:p.simulated, sensors:p.sensors, gestures:p.gestures};
-      joined.roomState.latest.set(joined.player, {...out, gestures:[],sensors:{...out.sensors,...(out.sensors.motionGame?{motionGame:{...out.sensors.motionGame,circleSeconds:0,shakeCount:0,shakeAgeMs:0,shakeSpanMs:0}}:{})}});
+      joined.roomState.latest.set(joined.player, {...out, gestures:[],sensors:{...out.sensors,...(out.sensors.motionGame?{motionGame:{...out.sensors.motionGame,circleSeconds:0,circleDegrees:0,shakeCount:0,shakeAgeMs:0,shakeSpanMs:0}}:{})}});
       broadcast(joined.roomState, out);
     });
     ws.on('error', () => {});

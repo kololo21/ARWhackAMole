@@ -270,10 +270,12 @@ public class HoleSlot : DefaultObserverEventHandler
         else if(KeepDisplay)transform.SetPositionAndRotation(lastTrackedPosition,lastTrackedRotation);
         if(prop!=null&&CurrentKind==MoleKind.Balance&&weakened)prop.localScale=Vector3.zero;
     }
+    public void ResetSensorProgress(){tiltProgress=0;wasSensorTarget=false;}
 
     private void Expire()
     {
         state = SlotState.Leaving;
+        if(CurrentKind==MoleKind.Flash)WhackSensorGame.Instance?.NotifyFlashExpired(this);
         if (currentAnimator != null) currentAnimator.SetTrigger("Hide");
         Debug.Log($"{name}: Hide (時間切れ)");
 

@@ -7,7 +7,7 @@ export const layouts = {
 };
 export function emptySensors() {
   return {...Object.fromEntries(Object.entries(layouts).map(([name,keys]) => [name,{valid:false,timestampMs:0,...Object.fromEntries(keys.map(k=>[k,null]))}])),
-    motionGame:{valid:false,timestampMs:0,windowMs:0,peakAcceleration:null,circleSeconds:0,circleActive:false,linear:false,shakeVersion:1,shakeCount:0,shakeAgeMs:0,shakeSpanMs:0}};
+    motionGame:{valid:false,timestampMs:0,windowMs:0,peakAcceleration:null,circleSeconds:0,circleActive:false,circleVersion:1,circleDegrees:0,linear:false,shakeVersion:1,shakeCount:0,shakeAgeMs:0,shakeSpanMs:0}};
 }
 export class GestureDetector {
   constructor() { this.latched={}; this.last={}; }

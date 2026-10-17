@@ -16,8 +16,7 @@ namespace WhackAMole.Sensors
         }
         public static void RewardWinner(SensorArenaModel model)
         {
-            var winner=model.Result=="赤チームの勝ち！"?model.Red:model.Result=="青チームの勝ち！"?model.Blue:null;
-            if(winner!=null)winner.Charge=Math.Min(model.ChargeLimit,winner.Charge+25);
+            model.ApplyContestReward();
         }
     }
 }

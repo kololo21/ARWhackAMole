@@ -6,7 +6,7 @@ using UnityEngine.UI;
 
 namespace WhackAMole.Sensors
 {
-    public sealed class SensorGameHud : MonoBehaviour
+    public sealed partial class SensorGameHud : MonoBehaviour
     {
         private WhackSensorGame game;
         private TMP_Text red,blue,status,legend;
@@ -44,25 +44,20 @@ namespace WhackAMole.Sensors
             BuildCameraSettings();
             foreach(var hole in game.Holes)
             {
-                var box=Element("Instruction_"+hole.name,transform,new Vector2(.5f,.5f),new Vector2(.5f,.5f),new Vector2(-190,0),new Vector2(190,78));
+                var box=Element("Instruction_"+hole.name,transform,new Vector2(.5f,.5f),new Vector2(.5f,.5f),new Vector2(-190,0),new Vector2(190,106));
                 box.pivot=new Vector2(.5f,0);
                 var bg=box.gameObject.AddComponent<Image>();bg.color=new Color(.025f,.045f,.065f,.9f);bg.raycastTarget=false;
-                var text=Text("InstructionText",box,"",23,new Vector2(8,3),new Vector2(372,75),Color.white);text.alignment=TextAlignmentOptions.Center;
+                var text=Text("InstructionText",box,"",23,new Vector2(8,3),new Vector2(372,103),Color.white);text.alignment=TextAlignmentOptions.Center;
                 holeLabels.Add(hole,text);box.gameObject.SetActive(false);
+                var voiceBar=Element("VoiceProgress",box,new Vector2(0,0),new Vector2(1,0),new Vector2(8,2),new Vector2(-8,7));
+                var voiceBack=voiceBar.gameObject.AddComponent<Image>();voiceBack.color=new Color(.18f,.23f,.3f);voiceBack.raycastTarget=false;
+                var voiceFill=Element("Fill",voiceBar,Vector2.zero,Vector2.one,Vector2.zero,Vector2.zero).gameObject.AddComponent<Image>();voiceFill.color=new Color(.55f,1,.7f);voiceFill.raycastTarget=false;voiceBars[hole]=voiceFill;
             }
-            var panel=Element("SensorPanel",transform,new Vector2(0,0),new Vector2(1,0),new Vector2(22,20),new Vector2(-22,275));
-            var background=panel.gameObject.AddComponent<Image>();background.color=new Color(.035f,.055f,.075f,.92f);background.raycastTarget=false;
-            red=Text("RedCharge",panel,"RED",24,new Vector2(20,198),new Vector2(550,234),new Color(1,.4f,.4f));
-            blue=Text("BlueCharge",panel,"BLUE",24,new Vector2(570,198),new Vector2(1100,234),new Color(.4f,.65f,1));
-            redFill=Bar(panel,"RedChargeBar",20,178,new Color(.95f,.25f,.3f),redDisplay);blueFill=Bar(panel,"BlueChargeBar",570,178,new Color(.2f,.5f,1),blueDisplay);
-            redDisplay.Action=Text("RedChargeAction",panel,"",25,new Vector2(20,132),new Vector2(550,173),Color.white);
-            blueDisplay.Action=Text("BlueChargeAction",panel,"",25,new Vector2(570,132),new Vector2(1100,173),Color.white);
-            status=Text("SensorStatus",panel,"",18,new Vector2(20,66),new Vector2(1100,121),Color.white);
-            legend=Text("MoleLegend",panel,"",18,new Vector2(20,27),new Vector2(1120,59),new Color(.78f,.85f,.9f));
-            contest=Button("CountContest",panel,"5秒・往復回数勝負",new Vector2(1160,185),new Vector2(1450,230),game.BeginContest);
-            charge=Button("ChargeMole",panel,"チャージもぐらを出す",new Vector2(1160,127),new Vector2(1450,172),game.ShowChargeMole);
-            flash=Button("FlashMole",panel,"合図 → 瞬間もぐら",new Vector2(1160,69),new Vector2(1450,114),game.BeginFlash);
+            BuildPlayPanel();
+            BuildPreparation();
+            BuildEventPanel();
         }
+
         private static RectTransform Element(string name,Transform parent,Vector2 min,Vector2 max,Vector2 low,Vector2 high)
         {
             var o=new GameObject(name,typeof(RectTransform));o.transform.SetParent(parent,false);var r=o.GetComponent<RectTransform>();r.anchorMin=min;r.anchorMax=max;r.offsetMin=low;r.offsetMax=high;return r;
@@ -137,7 +132,7 @@ namespace WhackAMole.Sensors
             display.Action.color=new Color(.78f,.85f,.9f);
             display.Action.text=!game.IsPlaying?$"ぜんまい：{model.ChargeCost:0}必要":!model.Ready(player,now)?"ぜんまい：スマホの送信を確認":player.Charge>=model.ChargeCost?$"ぜんまい撃破OK！ {model.ChargeCost:0}消費":$"ぜんまい：あと{System.Math.Ceiling(model.ChargeCost-player.Charge):0}チャージ";
         }
-        private void OnDestroy(){if(game!=null)game.Model.ChargeSpent-=ShowChargeSpent;}
+        private void OnDestroy(){if(game!=null)game.Model.ChargeSpent-=ShowChargeSpent;if(ringSprite!=null)Destroy(ringSprite);if(ringTexture!=null)Destroy(ringTexture);}
         private Button Button(string name,Transform parent,string label,Vector2 low,Vector2 high,UnityEngine.Events.UnityAction action)
         {
             var r=Element(name,parent,Vector2.zero,Vector2.zero,low,high);var image=r.gameObject.AddComponent<Image>();image.color=new Color(.17f,.26f,.31f);var button=r.gameObject.AddComponent<Button>();button.targetGraphic=image;button.onClick.AddListener(action);
@@ -146,21 +141,25 @@ namespace WhackAMole.Sensors
         public void Refresh(string message)
         {
             cameraSettingsPanel.SetActive(!game.IsPlaying);
-            ((RectTransform)cameraSettingsPanel.transform).anchoredPosition=new Vector2(0,game.Manager!=null&&game.Manager.State==GameState.Result?-70:20);
+            bool result=game.Manager!=null&&game.Manager.State==GameState.Result;
+            ((RectTransform)cameraSettingsPanel.transform).anchoredPosition=new Vector2(0,result?-25:20);
+            cameraSettingsPanel.transform.localScale=Vector3.one*(result ? .9f : 1);
             RefreshCameraSettings();
             var m=game.Model;var now=WhackSensorGame.Now;
-            red.text=$"RED  チャージ {m.Red.Charge:0} / {m.ChargeLimit:0}    往復 {m.Red.ShakeCount}回";
-            blue.text=$"BLUE  チャージ {m.Blue.Charge:0} / {m.ChargeLimit:0}    往復 {m.Blue.ShakeCount}回";
+            red.text=$"RED  チャージ {m.Red.Charge:0} / {m.ChargeLimit:0}";
+            blue.text=$"BLUE  チャージ {m.Blue.Charge:0} / {m.ChargeLimit:0}";
             RefreshCharge(redDisplay,redFill,m.Red,now);RefreshCharge(blueDisplay,blueFill,m.Blue,now);
-            legend.text=$"ぜんまい{m.ChargeCost:0}／王様{m.KingChargeCost:0}消費。傾きは基準姿勢を設定、声はスマホのマイクを許可";
-            string PlayerStatus(SensorBridge.SensorArenaModel.Player p) => m.Ready(p,now)?(p.Simulated?"合成データ":"受信中"):(p.Connected?"接続済・センサー待ち":"未接続");
-            var connection="赤 "+PlayerStatus(m.Red)+" ／ 青 "+PlayerStatus(m.Blue);
-            var relay=game.Receiver.Status=="Connected"?"接続済":game.Receiver.Status=="Connecting..."?"接続準備中":game.Receiver.Status.StartsWith("Reconnecting")?"再接続中":game.Receiver.Status;
-            status.text="中継 "+relay+" ／ Room "+game.roomKey+" ／ "+connection+"\n"+(m.MatchBusy?m.Result:"腕を回すとチャージ。"+message);
+            status.text=$"赤：{ConnectionStatus(m.Red,now)}{(m.Red.Voice.Verified?"":"・声未確認")} ／ 青：{ConnectionStatus(m.Blue,now)}{(m.Blue.Voice.Verified?"":"・声未確認")}";
+            legend.text=m.Red.Voice.Verified&&m.Blue.Voice.Verified?"腕を回してチャージ ／ ぜんまい50・王様75消費":"おねむ準備：マイク許可 → 一度静かに → 普通の声";
             bool ready=game.IsPlaying&&!m.MatchBusy;
-            contest.interactable=ready&&m.Ready(m.Red,now)&&m.Ready(m.Blue,now)&&m.Flash==SensorBridge.SensorArenaModel.FlashPhase.Idle;
+            contest.interactable=ready&&m.CircleReady(m.Red,now)&&m.CircleReady(m.Blue,now)&&m.Flash==SensorArenaModel.FlashPhase.Idle;
             charge.interactable=ready&&game.Holes.Any(h=>h.IsTracked);
-            flash.interactable=contest.interactable&&game.Holes.Any(h=>h.IsTracked);
+            flash.interactable=ready&&m.Ready(m.Red,now)&&m.Ready(m.Blue,now)&&m.Flash==SensorArenaModel.FlashPhase.Idle&&game.Holes.Any(h=>h.IsTracked);
+            playPanel.SetActive(game.IsPlaying);
+            preparationPanel.SetActive(!game.IsPlaying);
+            diagnosticsPanel.SetActive(diagnosticsVisible&&game.IsPlaying);
+            RefreshPreparation(now);
+            RefreshEvent(now);
             RefreshHoleLabels();
         }
         private void RefreshHoleLabels()
@@ -171,7 +170,7 @@ namespace WhackAMole.Sensors
             {
                 var hole=entry.Key;var text=entry.Value;var box=(RectTransform)text.transform.parent;
                 bool warning=game.FlashWarning&&game.FlashHole==hole;
-                bool visible=game.IsPlaying&&camera!=null&&hole.HasDisplayPose&&(hole.IsAlive||warning);
+                bool visible=game.IsPlaying&&!game.Model.MatchBusy&&camera!=null&&hole.HasDisplayPose&&game.FlashHole!=hole&&(hole.IsAlive||warning);
                 if(!visible){box.gameObject.SetActive(false);continue;}
                 var position=hole.transform.position;
                 if(!warning&&hole.Current!=null)
@@ -183,15 +182,19 @@ namespace WhackAMole.Sensors
                 if(screen.z<=0){box.gameObject.SetActive(false);continue;}
                 Vector2 local;RectTransformUtility.ScreenPointToLocalPointInRectangle(canvasRect,screen,canvasComponent.renderMode==RenderMode.ScreenSpaceOverlay?null:canvasComponent.worldCamera,out local);
                 float x=Mathf.Clamp(local.x,canvasRect.rect.xMin+195,canvasRect.rect.xMax-195);
-                float baseY=Mathf.Clamp(local.y+24,canvasRect.rect.yMin+290,canvasRect.rect.yMax-160),y=baseY;
+                float maxY=canvasRect.rect.yMax-(game.FlashHole!=null?440:300);
+                float baseY=Mathf.Clamp(local.y+24,canvasRect.rect.yMin+185,maxY),y=baseY;
                 for(int attempt=0;attempt<5;attempt++)
                 {
-                    var rect=new Rect(x-195,y,390,84);if(!occupied.Any(other=>other.Overlaps(rect)))break;
-                    float offset=(attempt/2+1)*88*(attempt%2==0?1:-1);
-                    y=Mathf.Clamp(baseY+offset,canvasRect.rect.yMin+290,canvasRect.rect.yMax-160);
+                    var rect=new Rect(x-195,y,390,112);if(!occupied.Any(other=>other.Overlaps(rect)))break;
+                    float offset=(attempt/2+1)*116*(attempt%2==0?1:-1);
+                    y=Mathf.Clamp(baseY+offset,canvasRect.rect.yMin+185,maxY);
                 }
-                occupied.Add(new Rect(x-195,y,390,84));box.anchoredPosition=new Vector2(x,y);
+                occupied.Add(new Rect(x-195,y,390,112));box.anchoredPosition=new Vector2(x,y);
                 box.gameObject.SetActive(true);
+                var voice=voiceBars[hole];voice.transform.parent.gameObject.SetActive(hole.CurrentKind==MoleKind.Sleepy&&hole.NeedsSensor);
+                var player=game.Model.Get(WhackSensorGame.Team(hole.CurrentColor));
+                voice.rectTransform.anchorMax=new Vector2(Mathf.Clamp01((float)(player.MicrophoneRms/player.Voice.Threshold)),1);
                 text.text=warning?$"スピード予告 {(game.FlashColour==DwellerColor.Red?"R":"B")}\nあと{game.FlashSeconds:0.0}秒・出てから叩こう":hole.Instruction;
                 text.color=warning||hole.HasInteractionFeedback?new Color(1,.85f,.3f):hole.CurrentColor==DwellerColor.Red?new Color(1,.55f,.5f):new Color(.5f,.75f,1);
                 box.localScale=Vector3.one*(warning?1+.025f*Mathf.Sin(Time.unscaledTime*10):1);

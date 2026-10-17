@@ -8,10 +8,10 @@ using UnityEngine;
 public static class WhackSensorRulesChecks
 {
     private static void Check(bool yes,string message){if(!yes)throw new Exception(message);}
-    private static SensorPacket Packet(string team,double now,double circle=0,int count=0,double peak=6)
+    private static SensorPacket Packet(string team,double now,double circle=0,int count=0,double peak=6,double degrees=0)
     {
         double phone=now+(team=="blue"?60000:0);
-        return new SensorPacket{player=team,seq=(long)now,timestampMs=phone,receivedAtMs=now,sensors=new SensorValues{motionGame=new GameMotionReading{valid=true,linear=true,timestampMs=phone,windowMs=50,peakAcceleration=peak,circleSeconds=circle,shakeVersion=1,shakeCount=count,shakeSpanMs=count>0?800:0}}};
+        return new SensorPacket{player=team,seq=(long)now,timestampMs=phone,receivedAtMs=now,sensors=new SensorValues{motionGame=new GameMotionReading{valid=true,linear=true,timestampMs=phone,windowMs=50,peakAcceleration=peak,circleSeconds=circle,circleVersion=1,circleDegrees=degrees,shakeVersion=1,shakeCount=count,shakeSpanMs=count>0?800:0}}};
     }
     private static void Warm(SensorArenaModel m,double now){m.Presence("red",true);m.Presence("blue",true);m.Ingest(Packet("red",now),now);m.Ingest(Packet("blue",now),now);}
     public static void RunChecks()
@@ -33,11 +33,17 @@ public static class WhackSensorRulesChecks
         m.Ingest(Packet("red",3000,.05),3000);Check(m.Red.Charge==40,"duplicate sequence cannot replay charge");
         m.Red.Charge=90;Check(m.BeginMatch(3000),"fresh phones can start contest");
         Check(!SensorGamePolicy.CanDefeat(m,MoleKind.Normal,"red",3000),"contest blocks hits");
-        for(double t=3050;t<=11250;t+=50){m.Ingest(Packet("red",t,0,t%800==0?1:0,6),t);m.Ingest(Packet("blue",t,0,t%1200==0?1:0,80),t);m.Tick(t);}
-        Check(m.Result=="赤チームの勝ち！"&&m.Red.ShakeCount>m.Blue.ShakeCount&&m.Red.Peak<m.Blue.Peak,"count wins despite weaker acceleration and differing phone clocks");
-        SensorGamePolicy.RewardWinner(m);Check(m.Red.Charge==100&&m.Blue.Charge==40,"reward is capped and colour-specific");
-        Warm(m,12000);Check(m.BeginMatch(12000),"contest restart");m.Tick(12600);Check(!m.MatchBusy,"disconnect releases pause");
+        for(double t=3050;t<=13250;t+=50){m.Ingest(Packet("red",t,.05,0,6,36),t);m.Ingest(Packet("blue",t,.05,0,80,18),t);m.Tick(t);}
+        Check(m.Result=="赤チームの勝ち！"&&m.Red.CirclePoints>m.Blue.CirclePoints&&m.Red.Peak<m.Blue.Peak,"rotation points win despite weaker acceleration and differing phone clocks");
+        SensorGamePolicy.RewardWinner(m);SensorGamePolicy.RewardWinner(m);Check(m.LastContest.Gained==10&&m.Red.Charge==100&&m.Blue.Charge==40,"reward is capped and colour-specific");
+        m.Red.Charge=40;SensorGamePolicy.RewardWinner(m);Check(m.Red.Charge==40,"an already-awarded result cannot refill spent charge");
+        int finalRed=m.Red.CirclePoints,finalBlue=m.Blue.CirclePoints;
+        m.Ingest(Packet("red",13300,0,1),13300);Check(m.Red.CirclePoints==finalRed&&m.Blue.CirclePoints==finalBlue,"motion during results cannot change frozen contest points");
+        Warm(m,16250);m.Tick(16250);Check(!m.MatchBusy,"result hold ends before restart");Check(m.BeginMatch(16250),"contest restart");m.Tick(16850);Check(m.MatchBusy&&m.LastContest!=null&&!m.LastContest.Valid,"disconnect shows cancellation result before releasing pause");m.Tick(19850);Check(!m.MatchBusy,"cancelled result releases pause after its display");
         var before=m.Red.Charge;SensorGamePolicy.RewardWinner(m);Check(m.Red.Charge==before,"invalid round earns no bonus");
+        var tie=new SensorArenaModel();Warm(tie,0);tie.Red.Charge=20;tie.Blue.Charge=30;Check(tie.BeginMatch(0),"start tie case");
+        for(double t=50;t<=10250;t+=50){Warm(tie,t);tie.Tick(t);}
+        Check(tie.LastContest.Valid&&tie.LastContest.Winner==null&&tie.Red.Charge==20&&tie.Blue.Charge==30,"tie with valid measurement awards neither side");
         var special=new SensorArenaModel();Warm(special,0);special.Red.Charge=74;
         Check(!SensorGamePolicy.CanDefeat(special,MoleKind.King,"red",0)&&special.Red.Charge==74,"king rejects 74 without spending");
         special.Red.Charge=100;Check(SensorGamePolicy.CanDefeat(special,MoleKind.King,"red",0)&&special.Red.Charge==25,"king spends 75");
@@ -57,9 +63,10 @@ public static class WhackSensorRulesChecks
         special.Reset();Check(special.Red.LastVoiceSeq==-1&&special.Red.LastQuietSeq==-1&&!special.Red.Voice.Armed,"retry clears voice detection while preserving calibration");
         Check(special.Red.Voice.Calibrated,"retry keeps device calibration");
         RunVoiceEdgeChecks();
+        RunCircleContestChecks();
         var flash=new SensorArenaModel();Warm(flash,0);Check(flash.BeginFlash(0)&&flash.Flash==SensorArenaModel.FlashPhase.LeadIn,"PC warning starts without phone ACK");
-        Warm(flash,1000);flash.Tick(1000);Check(flash.Flash==SensorArenaModel.FlashPhase.Visible,"PC warning has one-second lead-in");
-        Warm(flash,1900);flash.Tick(1900);Check(flash.Flash==SensorArenaModel.FlashPhase.Idle,"speedy window ends after 900 ms");
+        Warm(flash,2000);flash.Tick(2000);Check(flash.Flash==SensorArenaModel.FlashPhase.Visible,"PC warning has two-second lead-in");
+        Warm(flash,3800);flash.Tick(3800);Check(flash.Flash==SensorArenaModel.FlashPhase.Idle,"speedy window ends after 1800 ms");
     }
     private static void RunVoiceEdgeChecks()
     {
@@ -90,6 +97,41 @@ public static class WhackSensorRulesChecks
         noisy.AdjustSensitivity(.4);for(int t=2500;t<=2900;t+=50)noisy.Observe(t,t,.035,false);
         Check(noisy.Armed&&noisy.QuietThreshold>.035,"increased sensitivity still allows quiet re-arming above background");
         noisy.Observe(2950,2950,.06,false);noisy.Observe(3000,3000,.06,false);Check(noisy.Observe(3050,3050,.06,false),"adjusted sensitivity can detect a modest voice above the calibrated room");
+    }
+    private static void RunCircleContestChecks()
+    {
+        var m=new SensorArenaModel();Warm(m,0);Check(m.BeginMatch(0),"start circle-motion contest");
+        for(int t=50;t<=10250;t+=50)
+        {
+            foreach(string team in new[]{"red","blue"})
+            {
+                var p=Packet(team,t,.05,0,team=="red"?6:80,team=="red"?36:18);
+                m.Ingest(p,t);
+                Check(!m.Ingest(p,t),"duplicate packet cannot add rotation points");
+                var replay=Packet(team,t+.01,.05,0,6,36);replay.seq=t+1;
+                replay.sensors.motionGame.timestampMs=p.sensors.motionGame.timestampMs;
+                m.Ingest(replay,t+.01);
+            }
+            if(t<=5000)Check(m.Red.CirclePoints==0&&m.Blue.CirclePoints==0,"briefing and countdown rotation cannot earn points");
+            m.Tick(t);
+        }
+        Check(m.LastContest.Valid&&m.LastContest.RedPoints==1000&&m.LastContest.BluePoints==500,"only five measurement seconds count, not replayed native windows");
+        Check(m.LastContest.Winner=="red"&&m.Red.Charge==25&&m.Blue.Charge==0,"rotation wins regardless of acceleration strength; contest motion does not charge separately");
+        m.Reset();Check(m.Red.CirclePoints==0&&m.Blue.CirclePoints==0&&m.LastContest==null,"retry clears rotation points and result");
+        var old=new SensorArenaModel();Warm(old,0);
+        var legacy=Packet("red",50);legacy.sensors.motionGame.circleVersion=0;old.Ingest(legacy,50);
+        Check(old.Ready(old.Red,50)&&!old.CircleReady(old.Red,50)&&!old.BeginMatch(50),"old phones keep basic motion but must reload before a circle contest");
+        var boundary=new SensorArenaModel();Warm(boundary,0);boundary.BeginMatch(0);
+        for(int t=50;t<=5000;t+=50){Warm(boundary,t);boundary.Tick(t);}
+        boundary.Ingest(Packet("red",5010,.05,0,6,36),5010);
+        Check(boundary.Red.CirclePoints==0,"a motion window straddling the start cannot include preparation");
+        boundary.Ingest(Packet("red",5060,.05,0,6,3.59),5060);
+        Check(boundary.Red.CirclePoints==0,"point display and final comparison use the same whole-point precision");
+        boundary.Ingest(Packet("red",5110,.05,0,6,double.NaN),5110);
+        boundary.Ingest(Packet("red",5160,.05,0,6,-1),5160);
+        Check(boundary.Red.CirclePoints==0,"nonfinite and negative rotation increments cannot score");
+        boundary.Ingest(Packet("red",10010,.05,0,6,36),10010);
+        Check(boundary.Red.CirclePoints==0,"a motion window ending outside the measurement cannot score");
     }
     public static int Main(){try{RunChecks();Console.WriteLine("WHACK_SENSOR_RULES_PASSED");return 0;}catch(Exception e){Console.Error.WriteLine(e);return 1;}}
 #if UNITY_EDITOR

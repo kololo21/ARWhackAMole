@@ -1,5 +1,6 @@
 // Acceleration reversals are a proxy for a round trip, not position tracking.
 // Thresholds tune recognition; they do not define a physical safety limit.
+export const SHAKE_MIN_CYCLE_MS=300, SHAKE_MAX_CYCLE_MS=2000;
 export class ShakeCycle {
   constructor(){this.reset();}
   reset(){this.last=null;this.filtered=null;this.axis=null;this.phase=0;this.start=0;this.turn=0;this.candidate=null;this.lastCount=-Infinity;}
@@ -10,7 +11,7 @@ export class ShakeCycle {
     if(dt>120)this.reset();
     const v=[x,y,z],alpha=this.filtered===null?1:1-Math.exp(-dt/35);
     this.filtered=this.filtered===null?v:v.map((a,i)=>this.filtered[i]+alpha*(a-this.filtered[i]));this.last=t;
-    if(this.phase&&t-this.start>2000){this.phase=0;this.axis=null;this.candidate=null;}
+    if(this.phase&&t-this.start>SHAKE_MAX_CYCLE_MS){this.phase=0;this.axis=null;this.candidate=null;}
     const magnitude=Math.hypot(...this.filtered);
     if(!this.phase){
       if(magnitude<3){this.candidate=null;return null;}
@@ -24,11 +25,11 @@ export class ShakeCycle {
     this.candidate??=t;
     if(t-this.candidate<40)return null;
     if(this.phase===1){
-      if(this.candidate-this.start<120){this.phase=0;this.axis=null;this.candidate=null;return null;}
+      if(this.candidate-this.start<80){this.phase=0;this.axis=null;this.candidate=null;return null;}
       this.turn=this.candidate;this.phase=2;this.candidate=null;return null;
     }
     const span=t-this.start;
-    const accepted=this.candidate-this.turn>=120&&span>=600&&t-this.lastCount>=600;
+    const accepted=this.candidate-this.turn>=80&&span>=SHAKE_MIN_CYCLE_MS&&t-this.lastCount>=SHAKE_MIN_CYCLE_MS;
     this.start=t;this.phase=1;this.candidate=null;
     if(!accepted)return null;
     this.lastCount=t;return {t,spanMs:span};

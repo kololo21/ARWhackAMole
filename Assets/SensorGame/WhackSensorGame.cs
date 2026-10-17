@@ -34,6 +34,43 @@ namespace WhackAMole.Sensors
         public double FlashSeconds=>Math.Max(0,(Model.FlashStartMs-Now)/1000);
         public DwellerColor FlashColour=>flashColor;
         private string notice="";
+        public const string GameplayVersion="画面集中版 2026.10.18 / 腕回し対決対応";
+        public string EventMessage {get;private set;}="";
+        public double EventMessageUntil {get;private set;}
+        private readonly System.Collections.Generic.Dictionary<string,string> calibrationIds=new System.Collections.Generic.Dictionary<string,string>();
+        private readonly System.Collections.Generic.Dictionary<string,string> calibrationMessages=new System.Collections.Generic.Dictionary<string,string>();
+        private readonly System.Collections.Generic.Dictionary<string,double> calibrationDeadlines=new System.Collections.Generic.Dictionary<string,double>();
+        private SensorArenaModel.MatchPhase lastAudioPhase;
+        private int lastCountdown=-1;
+        public string CalibrationStatus(string team)
+        {
+            if(calibrationIds.ContainsKey(team)&&Now>calibrationDeadlines[team]){calibrationIds.Remove(team);calibrationMessages[team]="傾き調整：返答なし。スマホの送信を確認";}
+            return calibrationMessages.TryGetValue(team,out var message)?message:"";
+        }
+        public async void CalibrateTilt(string team)
+        {
+            if(IsPlaying)return;
+            string id=Guid.NewGuid().ToString("N");calibrationIds[team]=id;calibrationDeadlines[team]=Now+2500;calibrationMessages[team]="傾き調整：スマホの返答待ち…";
+            if(!await Receiver.SendFeedback(team,"calibrate","傾きの基準を合わせる",0,id))
+            {if(calibrationIds.TryGetValue(team,out var pending)&&pending==id){calibrationIds.Remove(team);calibrationMessages[team]="傾き調整：送信できませんでした";}}
+        }
+        private void Acknowledge(FeedbackAck ack)
+        {
+            Model.Acknowledge(ack,Now);
+            if(calibrationIds.TryGetValue(ack.player,out var id)&&id==ack.id&&Now<=calibrationDeadlines[ack.player])
+            {calibrationIds.Remove(ack.player);calibrationMessages[ack.player]=ack.applied?"傾き調整：完了":"傾き調整：姿勢を取得できません";}
+        }
+        public void ShowEventResult(string message)
+        {EventMessage=message;EventMessageUntil=Now+2200;SetNotice(message);}
+#if UNITY_EDITOR
+        public void ClearEventResultForVerification(){EventMessageUntil=0;}
+#endif
+        public void NotifyFlashExpired(HoleSlot hole)
+        {
+            if(hole!=reserved)return;
+            Model.CancelFlash("スピードは時間切れ");reserved=null;flashPreCovered=false;
+            ShowEventResult("スピードは時間切れ！ 次のチャンスを狙おう");PlayCue(.65f);
+        }
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
         private static void Install()
         {
@@ -58,7 +95,7 @@ namespace WhackAMole.Sensors
             Holes=FindObjectsByType<HoleSlot>(FindObjectsInactive.Include,FindObjectsSortMode.None).OrderBy(o=>o.name).ToArray();
             Receiver=GetComponent<SensorBridgeReceiver>()??gameObject.AddComponent<SensorBridgeReceiver>();
             Receiver.SampleReceived+=OnSample;Receiver.PresenceChanged+=Model.Presence;
-            Receiver.FeedbackAcknowledged+=a=>Model.Acknowledge(a,Now);
+            Receiver.FeedbackAcknowledged+=Acknowledge;
             Model.Feedback+=s=>{_ = Receiver.SendFeedback(s.Player,s.Kind,s.Message,s.DurationMs,s.Id);};
             var background=SceneObject("HudPanel")?.GetComponent<Image>();if(background)background.raycastTarget=false;
             hud=SensorGameHud.Create(this,SceneObject("Canvas"));
@@ -88,7 +125,7 @@ namespace WhackAMole.Sensors
         private void HandleState(GameState state)
         {
             Manager.SensorsPaused=false;reserved=null;flashSpawned=flashPreCovered=contestPending=false;
-            Model.Reset();hud?.ResetChargeFeedback();nextContestAt=60;nextFlashAt=18;notice=$"通常は手で叩く。ぜんまいは{Model.ChargeCost:0}、王様は{Model.KingChargeCost:0}チャージ";
+            Model.Reset();hud?.ResetChargeFeedback();nextContestAt=60;nextFlashAt=18;EventMessageUntil=0;lastCountdown=-1;lastAudioPhase=SensorArenaModel.MatchPhase.Idle;notice=$"通常は手で叩く。ぜんまいは{Model.ChargeCost:0}、王様は{Model.KingChargeCost:0}チャージ";
         }
         public bool TryAuthorizeDefeat(DwellerColor color,MoleKind kind)
         {
@@ -103,7 +140,7 @@ namespace WhackAMole.Sensors
             if(SensorGamePolicy.Cost(Model,kind)>0)SetNotice((color==DwellerColor.Red?"赤":"青")+$"：チャージ{SensorGamePolicy.Cost(Model,kind):0}消費！");return true;
         }
         public static string Team(DwellerColor color)=>color==DwellerColor.Red?"red":"blue";
-        public void SendHit(DwellerColor color,MoleKind kind=MoleKind.Normal){_ = Receiver.SendFeedback(Team(color),"hit",(color==DwellerColor.Red?"赤":"青")+" +"+((color==DwellerColor.Red?Manager.redPoint:Manager.bluePoint)*SensorGamePolicy.ScoreMultiplier(kind)),1000);}
+        public void SendHit(DwellerColor color,MoleKind kind=MoleKind.Normal){if(kind==MoleKind.Flash){Model.CancelFlash("スピード成功");reserved=null;flashPreCovered=false;ShowEventResult("スピード成功！ +30点");PlayCue(1.5f);}_ = Receiver.SendFeedback(Team(color),"hit",(color==DwellerColor.Red?"赤":"青")+" +"+((color==DwellerColor.Red?Manager.redPoint:Manager.bluePoint)*SensorGamePolicy.ScoreMultiplier(kind)),1000);}
         public HoleSlot SensorTarget(DwellerColor colour)=>Holes.Where(h=>h.NeedsSensor&&h.CurrentColor==colour).OrderBy(h=>h.SpawnOrder).FirstOrDefault();
         public bool CanSpawn(MoleKind kind,DwellerColor colour)
         {
@@ -120,13 +157,14 @@ namespace WhackAMole.Sensors
         public void SetNotice(string value){notice=value;}
         public void BeginContest()
         {
-            if(!IsPlaying||!Model.BeginMatch(Now)){SetNotice(Model.Result);return;}
+            if(!IsPlaying||Now<EventMessageUntil)return;
+            if(!Model.BeginMatch(Now)){ShowEventResult(Model.Result);return;}
             contestPending=true;Manager.SensorsPaused=true;
         }
         public void BeginFlash()
         {
             var hole=Holes.FirstOrDefault(h=>h.IsTracked&&h.IsEmpty);
-            if(!IsPlaying||hole==null||AtCapacity()){SetNotice("認識中の空いている穴と出現枠が必要です");return;}
+            if(!IsPlaying||Now<EventMessageUntil||hole==null||AtCapacity()){SetNotice("認識中の空いている穴と出現枠が必要です");return;}
             if(!Model.BeginFlash(Now)){SetNotice(Model.FlashMessage);return;}
             reserved=hole;flashColor=UnityEngine.Random.value<.5f?DwellerColor.Red:DwellerColor.Blue;flashSpawned=flashPreCovered=false;
             cueAudio.PlayOneShot(cueClip);SetNotice("穴の予告を見て、出てから叩こう！");
@@ -146,20 +184,23 @@ namespace WhackAMole.Sensors
             if(IsPlaying&&reserved!=null&&!flashSpawned&&(flashPreCovered||!reserved.IsTracked))
             {
                 Model.CancelFlash("予告中に穴が隠れたため中止。出てから叩こう");
+                ShowEventResult("先隠しで中止：モグラが出てから叩こう！");PlayCue(.65f);
                 notice=Model.FlashMessage;reserved=null;flashPreCovered=false;
             }
             Model.AllowSimulated=allowSimulated;Model.Tick(now);
+            UpdateEventAudio(now);
             if(IsPlaying)
             {
                 Manager.SensorsPaused=Model.MatchBusy;
                 if(contestPending&&!Model.MatchBusy)
                 {
                     contestPending=false;SensorGamePolicy.RewardWinner(Model);notice=Model.Result;
+                    foreach(var hole in Holes)hole.ResetSensorProgress();
                 }
                 double elapsed=Manager.gameDuration-Manager.RemainingTime;
-                if(automaticSensorEvents&&!Model.MatchBusy&&Model.Flash==SensorArenaModel.FlashPhase.Idle&&Model.Ready(Model.Red,now)&&Model.Ready(Model.Blue,now))
+                if(automaticSensorEvents&&!Model.MatchBusy&&now>=EventMessageUntil&&now>=Model.ResumeUntilMs&&Model.Flash==SensorArenaModel.FlashPhase.Idle&&Model.Ready(Model.Red,now)&&Model.Ready(Model.Blue,now))
                 {
-                    if(elapsed>=nextContestAt){BeginContest();nextContestAt=elapsed+60;}
+                    if(elapsed>=nextContestAt&&Model.CircleReady(Model.Red,now)&&Model.CircleReady(Model.Blue,now)){BeginContest();nextContestAt=elapsed+60;}
                     else if(elapsed>=nextFlashAt){BeginFlash();nextFlashAt=elapsed+(reserved!=null?UnityEngine.Random.Range(12f,22f):2);}
                 }
                 if(reserved!=null)
@@ -167,11 +208,19 @@ namespace WhackAMole.Sensors
                     if(Model.Flash==SensorArenaModel.FlashPhase.Visible&&!flashSpawned)
                     {
                         flashSpawned=reserved.Spawn(Catalog.Prefab(MoleKind.Flash,Team(flashColor)),flashColor,(float)(Model.FlashDurationMs/1000),true);
+                        if(flashSpawned)PlayCue(1.8f);
                     }
-                    if(Model.Flash==SensorArenaModel.FlashPhase.Idle){if(flashSpawned&&reserved.IsAlive)reserved.ExpireNow();if(!flashSpawned)notice=Model.FlashMessage;reserved=null;flashPreCovered=false;}
+                    if(Model.Flash==SensorArenaModel.FlashPhase.Idle){if(flashSpawned&&reserved.IsAlive)reserved.ExpireNow();else if(!flashSpawned)ShowEventResult(Model.FlashMessage);reserved=null;flashPreCovered=false;}
                 }
             }
             hud?.Refresh(notice);
+        }
+        private void PlayCue(float pitch){if(cueAudio==null)return;cueAudio.pitch=pitch;cueAudio.PlayOneShot(cueClip);}
+        private void UpdateEventAudio(double now)
+        {
+            if(Model.Match!=lastAudioPhase){if(Model.Match!=SensorArenaModel.MatchPhase.Idle)PlayCue(Model.Match==SensorArenaModel.MatchPhase.Result?1.5f:1);lastAudioPhase=Model.Match;}
+            if(Model.Match==SensorArenaModel.MatchPhase.Countdown)
+            {int count=(int)Math.Ceiling((Model.MatchStartMs-now)/1000);if(count!=lastCountdown){lastCountdown=count;PlayCue(1.15f);}}
         }
         private void OnDestroy()
         {

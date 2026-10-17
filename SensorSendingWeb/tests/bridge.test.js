@@ -93,10 +93,20 @@ test('dual-phone warning and acknowledgement routing; snapshot cannot replay ear
   await until(()=>red.messages.some(m=>m.id==='warning-red')&&blue.messages.some(m=>m.id==='warning-blue'));
   blue.send(JSON.stringify({type:'feedbackAck',id:'warning-blue',player:'red',enabled:true,screenVisible:true,vibrationSupported:false,vibrationAccepted:false}));
   await until(()=>receiver.messages.some(m=>m.type==='feedbackAck'));assert.equal(receiver.messages.find(m=>m.type==='feedbackAck').player,'blue');
-  const p=packet();p.sensors.motionGame={valid:true,timestampMs:p.timestampMs,windowMs:50,peakAcceleration:40,circleSeconds:.05,circleActive:true,linear:true,shakeVersion:1,shakeCount:1,shakeAgeMs:10,shakeSpanMs:800};red.send(JSON.stringify(p));
+  const p=packet();p.sensors.motionGame={valid:true,timestampMs:p.timestampMs,windowMs:50,peakAcceleration:40,circleSeconds:.05,circleActive:true,circleVersion:1,circleDegrees:18,linear:true,shakeVersion:1,shakeCount:1,shakeAgeMs:10,shakeSpanMs:800};red.send(JSON.stringify(p));
   await until(()=>receiver.messages.some(m=>m.type==='sample'));assert.equal(receiver.messages.find(m=>m.type==='sample').sensors.motionGame.circleSeconds,.05);
   assert.equal(receiver.messages.find(m=>m.type==='sample').sensors.motionGame.shakeCount,1);
-  const late=await connect(url,{role:'receiver',room});await until(()=>late.messages.some(m=>m.type==='sample'));const snapshot=late.messages.find(m=>m.type==='sample').sensors.motionGame;assert.equal(snapshot.circleSeconds,0);assert.equal(snapshot.shakeCount,0);assert.equal(snapshot.shakeAgeMs,0);
+  assert.equal(receiver.messages.find(m=>m.type==='sample').sensors.motionGame.circleDegrees,18);
+  const late=await connect(url,{role:'receiver',room});await until(()=>late.messages.some(m=>m.type==='sample'));const snapshot=late.messages.find(m=>m.type==='sample').sensors.motionGame;assert.equal(snapshot.circleSeconds,0);assert.equal(snapshot.circleDegrees,0);assert.equal(snapshot.shakeCount,0);assert.equal(snapshot.shakeAgeMs,0);
   p.sensors.motionGame.shakeCount=2;assert.equal(validPacket(p),false);
-  p.sensors.motionGame.shakeCount=1;p.sensors.motionGame.shakeSpanMs=300;assert.equal(validPacket(p),false);
+  p.sensors.motionGame.shakeCount=1;p.sensors.motionGame.shakeSpanMs=300;assert.equal(validPacket(p),true);
+  p.sensors.motionGame.shakeSpanMs=299;assert.equal(validPacket(p),false);
+});
+test('rotation packet rejects malformed increments while legacy charge packets remain valid',()=>{
+  const p=packet(),g={valid:true,timestampMs:p.timestampMs,windowMs:50,peakAcceleration:22,circleSeconds:.05,circleActive:true,linear:true};p.sensors.motionGame=g;
+  assert.equal(validPacket(p),true,'legacy phone may still charge');
+  g.circleVersion=1;g.circleDegrees=18;assert.equal(validPacket(p),true);
+  for(const degrees of [-1,NaN,Infinity,501]){g.circleDegrees=degrees;assert.equal(validPacket(p),false);}
+  g.circleDegrees=18;g.circleVersion=2;assert.equal(validPacket(p),false);
+  g.circleVersion=1;g.circleSeconds=0;assert.equal(validPacket(p),false,'no rotation without qualified active time');
 });
