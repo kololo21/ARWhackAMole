@@ -148,6 +148,8 @@ public class HoleSlot : DefaultObserverEventHandler
         if(CurrentKind==MoleKind.Helmet&&prop!=null)current.AddComponent<HelmetBreakEffect>().Prepare(prop);
         state = SlotState.Alive;
         if (flash && currentAnimator != null) { currentAnimator.Play("Idle", 0, 0); currentAnimator.Update(0); }
+        // 実際のプレイで何が出たかを Editor.log で後から確かめられるようにする(スピードは Flash)
+        Debug.Log($"{name}: Spawn {CurrentKind} ({color})");
         return true;
     }
 
@@ -220,7 +222,7 @@ public class HoleSlot : DefaultObserverEventHandler
         state = SlotState.Leaving;
         interactionFeedback=null;
         if (currentAnimator != null) currentAnimator.SetTrigger("Defeat");
-        Debug.Log($"{name}: Defeat ({currentColor})");
+        Debug.Log($"{name}: Defeat {CurrentKind} ({currentColor})");
 
         if (GameManager.Instance != null) GameManager.Instance.AddScore(currentColor,SensorGamePolicy.ScoreMultiplier(CurrentKind));
         if (AudioManager.Instance != null) AudioManager.Instance.PlayDefeatSe();
@@ -277,7 +279,7 @@ public class HoleSlot : DefaultObserverEventHandler
         state = SlotState.Leaving;
         if(CurrentKind==MoleKind.Flash)WhackSensorGame.Instance?.NotifyFlashExpired(this);
         if (currentAnimator != null) currentAnimator.SetTrigger("Hide");
-        Debug.Log($"{name}: Hide (時間切れ)");
+        Debug.Log($"{name}: Hide {CurrentKind} (時間切れ)");
 
         if (AudioManager.Instance != null) AudioManager.Instance.PlayExpireSe();
         OnExpired?.Invoke();
