@@ -61,8 +61,8 @@ namespace WhackAMole.Sensors
             var retry=WhackSensorGame.SceneObject("RetryButton");
             if(retry!=null){retryRect=retry.GetComponent<RectTransform>();retryPosition=retryRect.anchoredPosition;retryScale=retryRect.localScale;}
             var panel=Panel("SensorPreparation",new Vector2(0,0),new Vector2(1,0),new Vector2(22,20),new Vector2(-22,340),new Color(.035f,.055f,.075f,.96f));preparationPanel=panel.gameObject;
-            prepareRed=Text("PrepareRed",panel,"",21,new Vector2(20,100),new Vector2(755,265),new Color(1,.55f,.5f));
-            prepareBlue=Text("PrepareBlue",panel,"",21,new Vector2(790,100),new Vector2(1520,265),new Color(.5f,.75f,1));
+            prepareRed=Text("PrepareRed",panel,"",21,new Vector2(20,100),new Vector2(755,265),Color.white);
+            prepareBlue=Text("PrepareBlue",panel,"",21,new Vector2(790,100),new Vector2(1520,265),Color.white);
             RightColumn(prepareBlue.rectTransform);
             foreach(string team in new[]{"red","blue"})
             {
@@ -76,15 +76,27 @@ namespace WhackAMole.Sensors
             diagnosticToggle=Button("ToggleDiagnostics",panel,"診断：OFF",new Vector2(1320,8),new Vector2(1520,48),()=>
             {diagnosticsVisible=!diagnosticsVisible;diagnosticToggle.text="診断："+(diagnosticsVisible?"ON":"OFF");}).GetComponentInChildren<TMP_Text>();
             var toggle=(RectTransform)diagnosticToggle.transform.parent;toggle.anchorMin=toggle.anchorMax=new Vector2(1,0);toggle.anchoredPosition=new Vector2(-120,28);
-            Text("PrepareVersion",panel,WhackSensorGame.GameplayVersion,16,new Vector2(20,275),new Vector2(1500,315),new Color(.65f,.72f,.8f));
+            Text("PrepareVersion",panel,$"<b>プレイ前の準備</b>　<size=75%><color={MoleTheme.MutedHex}>{WhackSensorGame.GameplayVersion}</color></size>",21,new Vector2(20,275),new Vector2(1500,315),MoleTheme.Gold);
         }
         private static void RightColumn(RectTransform rect)
         {rect.anchorMin=rect.anchorMax=new Vector2(.5f,0);rect.anchoredPosition-=new Vector2(770,0);}
         private string Preparation(SensorArenaModel.Player p,double now)
         {
-            var m=game.Model;string team=p==m.Red?"RED":"BLUE";
+            var m=game.Model;bool red=p==m.Red;
+            bool sending=m.Ready(p,now),circle=m.CircleReady(p,now);
             string mic=!m.MicrophoneReady(p,now)?"スマホでマイクを許可":!p.Voice.Calibrated?$"2秒ほど静かに：周囲音を測定中 {p.Voice.Progress:P0}":!p.Voice.Verified?(p.Voice.Baseline>.03?"周囲音が大きめ：マイクを近づけ、静かに→『はい』":"一度静かにして、普通の声で『はい』"):"声の準備OK。Unity画面を見て遊ぼう";
-            return $"{team}：{ConnectionStatus(p,now)} ／ 姿勢：{(m.TiltReady(p,now)?"OK":"待機")}\n{mic}\n声 {p.MicrophoneRms:0.0000} / 目安 {p.Voice.Threshold:0.0000}（周囲 {p.Voice.Baseline:0.0000}）\n腕回し対決：{(m.CircleReady(p,now)?"入力OK":"回転センサー待ち／スマホの許可を確認")}\n{game.CalibrationStatus(p.Name)}"+(!p.Voice.Verified&&p.Voice.Calibrated?"\n反応しない時は下の感度調整／周囲音の再測定":"");
+            // 1行目：チーム名と4項目のチェック。2行目：いま一番やってほしいこと。3行目以降：数値と補足
+            string next=!sending?(p.Connected?"スマホのセンサー入力を待っています":"スマホでQRを開き「センサーを許可して送信」"):!p.Voice.Verified?mic:!circle?"腕回し：回転センサー待ち／スマホの許可を確認":"準備OK！ 画面を見て遊ぼう";
+            string calibration=game.CalibrationStatus(p.Name);
+            return $"<size=125%><b><color={(red?MoleTheme.RedHex:MoleTheme.BlueHex)}>{(red?"RED":"BLUE")}</color></b></size>   {Step(sending,ConnectionStatus(p,now))}   {Step(m.TiltReady(p,now),"姿勢")}   {Step(circle,"腕回し")}   {Step(p.Voice.Verified,"声")}\n"
+                +$"<color={(sending&&p.Voice.Verified&&circle?MoleTheme.OkHex:MoleTheme.GoldHex)}>▶ {next}</color>\n"
+                +$"<size=80%><color={MoleTheme.MutedHex}>声 {p.MicrophoneRms:0.0000} / 目安 {p.Voice.Threshold:0.0000}（周囲 {p.Voice.Baseline:0.0000}）{(calibration==""?"":"　"+calibration)}</color></size>"
+                +(!p.Voice.Verified&&p.Voice.Calibrated?$"\n<size=80%><color={MoleTheme.MutedHex}>反応しない時は下の感度調整／周囲音の再測定</color></size>":"");
+        }
+        // 済んだ項目は緑の●、まだの項目は灰色の○
+        private static string Step(bool ok,string label)
+        {
+            return ok?$"<color={MoleTheme.OkHex}>● {label}</color>":$"<color={MoleTheme.MutedHex}>○ {label}</color>";
         }
         private void RefreshPreparation(double now)
         {
