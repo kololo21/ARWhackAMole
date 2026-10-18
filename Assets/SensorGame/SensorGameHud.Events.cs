@@ -29,7 +29,7 @@ namespace WhackAMole.Sensors
             var rect=Element(name,transform,min,max,low,high);
             var image=rect.gameObject.AddComponent<Image>();image.raycastTarget=false;
             // 全画面の暗幕だけは角を丸めない
-            if(min==Vector2.zero&&max==Vector2.one)image.color=MoleTheme.Tint(color);else MoleTheme.StylePanel(image,MoleTheme.Tint(color));
+            if(min==Vector2.zero&&max==Vector2.one)image.color=UITheme.Tint(color);else UITheme.StylePanel(image,UITheme.Tint(color));
             return rect;
         }
         private void BuildPlayPanel()
@@ -76,7 +76,7 @@ namespace WhackAMole.Sensors
             diagnosticToggle=Button("ToggleDiagnostics",panel,"診断：OFF",new Vector2(1320,8),new Vector2(1520,48),()=>
             {diagnosticsVisible=!diagnosticsVisible;diagnosticToggle.text="診断："+(diagnosticsVisible?"ON":"OFF");}).GetComponentInChildren<TMP_Text>();
             var toggle=(RectTransform)diagnosticToggle.transform.parent;toggle.anchorMin=toggle.anchorMax=new Vector2(1,0);toggle.anchoredPosition=new Vector2(-120,28);
-            Text("PrepareVersion",panel,$"<b>プレイ前の準備</b>　<size=75%><color={MoleTheme.MutedHex}>{WhackSensorGame.GameplayVersion}</color></size>",21,new Vector2(20,275),new Vector2(1500,315),MoleTheme.Gold);
+            Text("PrepareVersion",panel,$"<b>プレイ前の準備</b>　<size=75%><color={UITheme.SubtleHex}>{WhackSensorGame.GameplayVersion}</color></size>",21,new Vector2(20,275),new Vector2(1500,315),UITheme.Accent);
         }
         private static void RightColumn(RectTransform rect)
         {rect.anchorMin=rect.anchorMax=new Vector2(.5f,0);rect.anchoredPosition-=new Vector2(770,0);}
@@ -88,15 +88,15 @@ namespace WhackAMole.Sensors
             // 1行目：チーム名と4項目のチェック。2行目：いま一番やってほしいこと。3行目以降：数値と補足
             string next=!sending?(p.Connected?"スマホのセンサー入力を待っています":"スマホでQRを開き「センサーを許可して送信」"):!p.Voice.Verified?mic:!circle?"腕回し：回転センサー待ち／スマホの許可を確認":"準備OK！ 画面を見て遊ぼう";
             string calibration=game.CalibrationStatus(p.Name);
-            return $"<size=125%><b><color={(red?MoleTheme.RedHex:MoleTheme.BlueHex)}>{(red?"RED":"BLUE")}</color></b></size>   {Step(sending,ConnectionStatus(p,now))}   {Step(m.TiltReady(p,now),"姿勢")}   {Step(circle,"腕回し")}   {Step(p.Voice.Verified,"声")}\n"
-                +$"<color={(sending&&p.Voice.Verified&&circle?MoleTheme.OkHex:MoleTheme.GoldHex)}>▶ {next}</color>\n"
-                +$"<size=80%><color={MoleTheme.MutedHex}>声 {p.MicrophoneRms:0.0000} / 目安 {p.Voice.Threshold:0.0000}（周囲 {p.Voice.Baseline:0.0000}）{(calibration==""?"":"　"+calibration)}</color></size>"
-                +(!p.Voice.Verified&&p.Voice.Calibrated?$"\n<size=80%><color={MoleTheme.MutedHex}>反応しない時は下の感度調整／周囲音の再測定</color></size>":"");
+            return $"<size=125%><b><color={(red?UITheme.RedHex:UITheme.BlueHex)}>{(red?"RED":"BLUE")}</color></b></size>   {Step(sending,ConnectionStatus(p,now))}   {Step(m.TiltReady(p,now),"姿勢")}   {Step(circle,"腕回し")}   {Step(p.Voice.Verified,"声")}\n"
+                +$"<color={(sending&&p.Voice.Verified&&circle?UITheme.OkHex:UITheme.AccentHex)}>▶ {next}</color>\n"
+                +$"<size=80%><color={UITheme.SubtleHex}>声 {p.MicrophoneRms:0.0000} / 目安 {p.Voice.Threshold:0.0000}（周囲 {p.Voice.Baseline:0.0000}）{(calibration==""?"":"　"+calibration)}</color></size>"
+                +(!p.Voice.Verified&&p.Voice.Calibrated?$"\n<size=80%><color={UITheme.SubtleHex}>反応しない時は下の感度調整／周囲音の再測定</color></size>":"");
         }
         // 済んだ項目は緑の●、まだの項目は灰色の○
         private static string Step(bool ok,string label)
         {
-            return ok?$"<color={MoleTheme.OkHex}>● {label}</color>":$"<color={MoleTheme.MutedHex}>○ {label}</color>";
+            return ok?$"<color={UITheme.OkHex}>● {label}</color>":$"<color={UITheme.SubtleHex}>○ {label}</color>";
         }
         private void RefreshPreparation(double now)
         {
@@ -123,7 +123,7 @@ namespace WhackAMole.Sensors
         }
         private Image ContestBar(Transform parent,string name,Vector2 low,Vector2 high,Color color)
         {
-            var back=Element(name,parent,Vector2.zero,Vector2.zero,low,high);back.gameObject.AddComponent<Image>().color=MoleTheme.Tint(new Color(.18f,.23f,.3f));
+            var back=Element(name,parent,Vector2.zero,Vector2.zero,low,high);back.gameObject.AddComponent<Image>().color=UITheme.Tint(new Color(.18f,.23f,.3f));
             var fill=Element("Fill",back,Vector2.zero,Vector2.one,Vector2.zero,Vector2.zero).gameObject.AddComponent<Image>();fill.color=color;fill.raycastTarget=false;return fill;
         }
         private void RefreshEvent(double now)

@@ -85,19 +85,19 @@ public class UIController : MonoBehaviour
         if (blue > lastBlue) blueBumpAt = Time.unscaledTime;
         lastRed = red;
         lastBlue = blue;
-        redScoreText.text = $"<size=50%><color={MoleTheme.RedHex}>RED</color></size>  {red}";
-        blueScoreText.text = $"{blue}  <size=50%><color={MoleTheme.BlueHex}>BLUE</color></size>";
+        redScoreText.text = $"<size=50%><color={UITheme.RedHex}>RED</color></size>  {red}";
+        blueScoreText.text = $"{blue}  <size=50%><color={UITheme.BlueHex}>BLUE</color></size>";
     }
 
     // 残り時間が変わったとき。9.2 秒なら「10」と切り上げて表示する
-    // 残り10秒からは金色→赤で点滅させて、終わりが近いことを知らせる
+    // 残り10秒からは黄色→赤で点滅させて、終わりが近いことを知らせる
     private void HandleTime(float t)
     {
         int seconds = Mathf.CeilToInt(t);
-        timeText.text = $"<size=45%><color={MoleTheme.MutedHex}>TIME </color></size>{seconds}";
+        timeText.text = $"<size=45%><color={UITheme.SubtleHex}>TIME </color></size>{seconds}";
         bool hurry = seconds <= 10 && seconds > 0;
         float pulse = hurry ? .5f + .5f * Mathf.Sin(Time.unscaledTime * 10) : 0;
-        timeText.color = hurry ? Color.Lerp(MoleTheme.Gold, MoleTheme.Red, pulse) : MoleTheme.Cream;
+        timeText.color = hurry ? Color.Lerp(UITheme.Accent, UITheme.Red, pulse) : UITheme.Text;
         timeText.transform.localScale = Vector3.one * (1 + .06f * pulse);
     }
 
@@ -114,15 +114,15 @@ public class UIController : MonoBehaviour
         return age < .35f ? 1 + .25f * (1 - age / .35f) : 1;
     }
 
-    // HUD の文字の後ろに、土色のプレート(チーム色の縁)を敷く。Scene は変更しない
+    // HUD の文字の後ろに、暗いグレーのプレート(チーム色の細い縁)を敷く。Scene は変更しない
     private void StyleHud()
     {
-        Plate(redScoreText, MoleTheme.Red);
-        Plate(blueScoreText, MoleTheme.Blue);
-        Plate(timeText, MoleTheme.Gold);
+        Plate(redScoreText, UITheme.Red);
+        Plate(blueScoreText, UITheme.Blue);
+        Plate(timeText, new Color(1, 1, 1, .12f));
         foreach (TMP_Text text in new[] { redScoreText, blueScoreText, timeText })
         {
-            text.color = MoleTheme.Cream;
+            text.color = UITheme.Text;
             text.fontStyle = FontStyles.Bold;
         }
         redScoreText.alignment = TextAlignmentOptions.Left;
@@ -145,7 +145,7 @@ public class UIController : MonoBehaviour
         rect.anchoredPosition = source.anchoredPosition;
         rect.sizeDelta = source.sizeDelta + new Vector2(10, 0);
         var image = plate.AddComponent<UnityEngine.UI.Image>();
-        MoleTheme.StylePanel(image, new Color(MoleTheme.Soil.r, MoleTheme.Soil.g, MoleTheme.Soil.b, .85f));
+        UITheme.StylePanel(image, new Color(UITheme.Surface.r, UITheme.Surface.g, UITheme.Surface.b, .85f));
         image.GetComponent<UnityEngine.UI.Outline>().effectColor = edge;
         image.raycastTarget = false;
         // 文字の左右に余白を取る
