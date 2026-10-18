@@ -119,12 +119,22 @@ export class Sensors {
     if(this.audioStream) return;
     const stream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:false,noiseSuppression:false,autoGainControl:false},video:false});
     if(!this.active) {stream.getTracks().forEach(t=>t.stop());return;}
-    this.audioStream=stream;
-    this.audio=new (window.AudioContext||window.webkitAudioContext)(); await this.audio.resume();
-    if(!this.active) return;
-    this.analyser=this.audio.createAnalyser(); this.analyser.fftSize=1024;
-    this.audio.createMediaStreamSource(stream).connect(this.analyser); this.audioBuffer=new Float32Array(1024);
-    this.onStatus('microphone','取得中（音声は送信しません）');
+    let audio;
+    try {
+      this.audioStream=stream;
+      audio=this.audio=new (window.AudioContext||window.webkitAudioContext)(); await audio.resume();
+      if(!this.active) return;
+      this.analyser=audio.createAnalyser(); this.analyser.fftSize=1024;
+      audio.createMediaStreamSource(stream).connect(this.analyser); this.audioBuffer=new Float32Array(1024);
+      this.onStatus('microphone','取得中（音声は送信しません）');
+    } catch(error) {
+      // Permission may succeed while audio initialization fails. Release the
+      // stream and clear partial state so the permission button can retry.
+      stream.getTracks().forEach(track=>track.stop());
+      this.audioStream=null;this.audio=null;this.analyser=null;
+      await audio?.close().catch(()=>{});
+      throw error;
+    }
   }
   async enableCamera() {
     if(!this.active || this.simulated) throw new Error('実機モードで送信を開始してください');
