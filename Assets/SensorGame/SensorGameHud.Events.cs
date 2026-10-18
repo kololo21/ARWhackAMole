@@ -27,7 +27,10 @@ namespace WhackAMole.Sensors
         private RectTransform Panel(string name,Vector2 min,Vector2 max,Vector2 low,Vector2 high,Color color)
         {
             var rect=Element(name,transform,min,max,low,high);
-            var image=rect.gameObject.AddComponent<Image>();image.color=color;image.raycastTarget=false;return rect;
+            var image=rect.gameObject.AddComponent<Image>();image.raycastTarget=false;
+            // 全画面の暗幕だけは角を丸めない
+            if(min==Vector2.zero&&max==Vector2.one)image.color=UITheme.Tint(color);else UITheme.StylePanel(image,UITheme.Tint(color));
+            return rect;
         }
         private void BuildPlayPanel()
         {
@@ -108,7 +111,7 @@ namespace WhackAMole.Sensors
         }
         private Image ContestBar(Transform parent,string name,Vector2 low,Vector2 high,Color color)
         {
-            var back=Element(name,parent,Vector2.zero,Vector2.zero,low,high);back.gameObject.AddComponent<Image>().color=new Color(.18f,.23f,.3f);
+            var back=Element(name,parent,Vector2.zero,Vector2.zero,low,high);back.gameObject.AddComponent<Image>().color=UITheme.Tint(new Color(.18f,.23f,.3f));
             var fill=Element("Fill",back,Vector2.zero,Vector2.one,Vector2.zero,Vector2.zero).gameObject.AddComponent<Image>();fill.color=color;fill.raycastTarget=false;return fill;
         }
         private void RefreshEvent(double now)
