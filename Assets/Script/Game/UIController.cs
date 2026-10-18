@@ -25,6 +25,8 @@ public class UIController : MonoBehaviour
     private float redBumpAt = -10;
     private float blueBumpAt = -10;
 
+    private ResultScreenView resultView;
+
     private void Start()
     {
         GameManager gm = GameManager.Instance;
@@ -36,6 +38,7 @@ public class UIController : MonoBehaviour
 
         StyleHud();
         TitleScreenView.Build(titlePanel);
+        resultView = ResultScreenView.Build(resultPanel, resultText);
 
         // 購読(+=)。メソッド名の後ろに () は付けない
         gm.OnStateChanged += HandleState;
@@ -70,6 +73,8 @@ public class UIController : MonoBehaviour
             // <color=...> は TextMeshPro の書式タグ。HUD と同じ赤・青で表示する
             resultText.text =
                 $"RESULT\n<color=#FF5A4E>RED {lastRed}</color>   <color=#5AA0FF>BLUE {lastBlue}</color>";
+            // 見た目はスコアカードの演出(ResultScreenView)で出す。上の文字は非表示のまま残す
+            if (resultView != null) resultView.Show(lastRed, lastBlue);
         }
     }
 
