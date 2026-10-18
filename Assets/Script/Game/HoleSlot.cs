@@ -53,6 +53,9 @@ public class HoleSlot : DefaultObserverEventHandler
     public bool HasInteractionFeedback => !string.IsNullOrEmpty(interactionFeedback) && Time.unscaledTime < feedbackUntil;
     private Transform prop;
     private Mesh removedPropMesh;
+    // 回転させる前のキャラの顔の向き(穴のローカル座標、水平)。測れなかったら zero
+    private Vector3 faceLocal;
+    private float faceYaw;
     private static long nextSpawnOrder;
     public long SpawnOrder {get;private set;}
     public long SpawnSensorSeq {get;private set;}
@@ -145,6 +148,8 @@ public class HoleSlot : DefaultObserverEventHandler
         interactionFeedback=null;
         SpawnSensorSeq=WhackSensorGame.Instance?.Model.Get(WhackSensorGame.Team(color)).LastSeq??-1;
         prop=null;foreach(var t in current.GetComponentsInChildren<Transform>())if(t.name=="prop"){prop=t;break;}
+        MeasureFace();
+        FaceCamera(true);
         if(CurrentKind==MoleKind.Helmet&&prop!=null)current.AddComponent<HelmetBreakEffect>().Prepare(prop);
         state = SlotState.Alive;
         if (flash && currentAnimator != null) { currentAnimator.Play("Idle", 0, 0); currentAnimator.Update(0); }
@@ -269,6 +274,41 @@ public class HoleSlot : DefaultObserverEventHandler
         if(IsTracked)RememberDisplayPose();
         else if(KeepDisplay)transform.SetPositionAndRotation(lastTrackedPosition,lastTrackedRotation);
         if(prop!=null&&CurrentKind==MoleKind.Balance&&weakened)prop.localScale=Vector3.zero;
+        FaceCamera(false);
+    }
+
+    // 頭と両目のボーンから、キャラの顔が向いている水平方向を求める。
+    // 両目を結ぶ線に垂直な向きを基本にし、頭→目の向きで前後を決める
+    private void MeasureFace()
+    {
+        faceLocal=Vector3.zero;
+        Transform head=null,eyeL=null,eyeR=null;
+        foreach(var t in current.GetComponentsInChildren<Transform>())
+        {
+            if(t.name=="head")head=t;else if(t.name=="eye_L")eyeL=t;else if(t.name=="eye_R")eyeR=t;
+        }
+        if(eyeL==null||eyeR==null)return;
+        Vector3 side=Vector3.ProjectOnPlane(transform.InverseTransformDirection(eyeR.position-eyeL.position),Vector3.up);
+        Vector3 forward=Vector3.Cross(side,Vector3.up);
+        if(head!=null)
+        {
+            Vector3 toEyes=Vector3.ProjectOnPlane(transform.InverseTransformDirection((eyeL.position+eyeR.position)*.5f-head.position),Vector3.up);
+            if(Vector3.Dot(toEyes,forward)<0)forward=-forward;
+        }
+        if(forward.sqrMagnitude>1e-10f)faceLocal=forward.normalized;
+    }
+
+    // カメラの映像で顔が見えるよう、キャラを穴の上下軸まわりに回してカメラの方へ向ける。
+    // 映像の左右・上下反転は描画後に行うので、どの反転設定でも顔が映る
+    private void FaceCamera(bool snap)
+    {
+        var camera=Camera.main;
+        if(current==null||camera==null||faceLocal==Vector3.zero)return;
+        Vector3 toCamera=Vector3.ProjectOnPlane(transform.InverseTransformPoint(camera.transform.position)-current.transform.localPosition,Vector3.up);
+        if(toCamera.sqrMagnitude<1e-8f)return;
+        float target=Vector3.SignedAngle(faceLocal,toCamera,Vector3.up);
+        faceYaw=snap?target:Mathf.LerpAngle(faceYaw,target,1-Mathf.Exp(-10*Time.deltaTime));
+        current.transform.localRotation=Quaternion.AngleAxis(faceYaw,Vector3.up);
     }
     public void ResetSensorProgress(){tiltProgress=0;wasSensorTarget=false;}
 
