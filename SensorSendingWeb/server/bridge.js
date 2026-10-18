@@ -24,7 +24,7 @@ export function validPacket(p) {
     if(game.peakAcceleration!==null&&(!finite(game.peakAcceleration)||game.peakAcceleration<0||game.peakAcceleration>10000))return false;
     if(game.valid&&(!game.linear||game.peakAcceleration===null||game.windowMs>250))return false;
     if(game.circleVersion!==undefined||game.circleDegrees!==undefined){
-      if(game.circleVersion!==1||!finite(game.circleDegrees)||game.circleDegrees<0||game.circleDegrees>game.circleSeconds*10000+.001||!game.valid&&game.circleDegrees!==0)return false;
+      if(![0,1].includes(game.circleVersion)||!finite(game.circleDegrees)||game.circleDegrees<0||game.circleDegrees>game.circleSeconds*10000+.001||(!game.valid||game.circleVersion===0)&&game.circleDegrees!==0)return false;
     }
     if(game.shakeVersion!==undefined||game.shakeCount!==undefined){
       if(game.shakeVersion!==1||!Number.isInteger(game.shakeCount)||game.shakeCount<0||game.shakeCount>1||!finite(game.shakeAgeMs)||game.shakeAgeMs<0||game.shakeAgeMs>game.windowMs||!finite(game.shakeSpanMs))return false;

@@ -113,7 +113,7 @@ namespace SensorBridge
         }
         public bool BeginMatch(double now)
         {
-            if(MatchBusy||Flash!=FlashPhase.Idle||!CircleReady(Red,now)||!CircleReady(Blue,now)){Result="腕回し対決の入力待ち。両スマホを再読み込みして送信してください";return false;}
+            if(MatchBusy||Flash!=FlashPhase.Idle||!CircleReady(Red,now)||!CircleReady(Blue,now)){Result="腕回し入力待ち：スマホの許可と再読み込みを確認";return false;}
             Red.Peak=Blue.Peak=0;Red.Samples=Blue.Samples=0;Red.CircleDegrees=Blue.CircleDegrees=0;
             LastContest=null;MatchCountdownMs=now+2000;MatchStartMs=MatchCountdownMs+3000;MatchEndMs=MatchStartMs+5000;Match=MatchPhase.Briefing;Result="まもなく5秒ぐるぐる対決！ 勝者はチャージ+25";
             Red.Voice.ResetDetection();Blue.Voice.ResetDetection();
@@ -146,7 +146,7 @@ namespace SensorBridge
         {
             if(MatchBusy&&Match!=MatchPhase.Result&&(!CircleReady(Red,now)||!CircleReady(Blue,now)))
             {
-                FinishContest(now,false,"通信が途切れたため対決中止");
+                FinishContest(now,false,"回転センサー入力が途切れたため対決中止");
             }
             if(Match==MatchPhase.Briefing&&now>=MatchCountdownMs)Match=MatchPhase.Countdown;
             if(Match==MatchPhase.Countdown&&now>=MatchStartMs){Match=MatchPhase.Circling;Result="5秒間、チャージと同じ腕回し！ 回転ポイントで勝負！";Send(Red,"contest",Result,5000);Send(Blue,"contest",Result,5000);}

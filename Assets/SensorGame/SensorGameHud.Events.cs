@@ -81,7 +81,7 @@ namespace WhackAMole.Sensors
         {
             var m=game.Model;string team=p==m.Red?"RED":"BLUE";
             string mic=!m.MicrophoneReady(p,now)?"スマホでマイクを許可":!p.Voice.Calibrated?$"2秒ほど静かに：周囲音を測定中 {p.Voice.Progress:P0}":!p.Voice.Verified?(p.Voice.Baseline>.03?"周囲音が大きめ：マイクを近づけ、静かに→『はい』":"一度静かにして、普通の声で『はい』"):"声の準備OK。Unity画面を見て遊ぼう";
-            return $"{team}：{ConnectionStatus(p,now)} ／ 姿勢：{(m.TiltReady(p,now)?"OK":"待機")}\n{mic}\n声 {p.MicrophoneRms:0.0000} / 目安 {p.Voice.Threshold:0.0000}（周囲 {p.Voice.Baseline:0.0000}）\n腕回し対決：{(m.CircleReady(p,now)?"入力OK":"スマホを再読み込みして送信")}\n{game.CalibrationStatus(p.Name)}"+(!p.Voice.Verified&&p.Voice.Calibrated?"\n反応しない時は下の感度調整／周囲音の再測定":"");
+            return $"{team}：{ConnectionStatus(p,now)} ／ 姿勢：{(m.TiltReady(p,now)?"OK":"待機")}\n{mic}\n声 {p.MicrophoneRms:0.0000} / 目安 {p.Voice.Threshold:0.0000}（周囲 {p.Voice.Baseline:0.0000}）\n腕回し対決：{(m.CircleReady(p,now)?"入力OK":"回転センサー待ち／スマホの許可を確認")}\n{game.CalibrationStatus(p.Name)}"+(!p.Voice.Verified&&p.Voice.Calibrated?"\n反応しない時は下の感度調整／周囲音の再測定":"");
         }
         private void RefreshPreparation(double now)
         {

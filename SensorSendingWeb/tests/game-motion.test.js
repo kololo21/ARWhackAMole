@@ -66,3 +66,17 @@ test('circle rotation accumulates continuously at faster speeds while charge tim
   assert.equal(run(650,22).degrees,0,'wrist-like high rotation with little translation is still excluded');
   assert.equal(run(null,22).degrees,0,'missing gyro does not earn rotation');
 });
+test('circle readiness requires actual gyro readings, including a valid stationary zero',()=>{
+  const g=new GameMotion();
+  g.update({t:0,a:6,gyro:null,linear:true});
+  let p=g.flush(0,1000);
+  assert.equal(p.valid,true,'other motion input remains available');
+  assert.equal(p.circleVersion,0,'missing gyro must not advertise circle readiness');
+  assert.equal(p.circleDegrees,0);
+  assert.ok(validPacket({type:'sample',version:1,seq:0,timestampMs:1000,simulated:false,sensors:{...emptySensors(),motionGame:p},gestures:[]}));
+  g.update({t:50,a:0,gyro:0,linear:true});p=g.flush(50,1050);
+  assert.equal(p.circleVersion,1,'stationary gyro is supported and ready');
+  g.update({t:100,a:6,gyro:NaN,linear:true});p=g.flush(100,1100);
+  assert.equal(p.circleVersion,0);
+  g.reset();assert.equal(g.flush(150,1150).circleVersion,0);
+});

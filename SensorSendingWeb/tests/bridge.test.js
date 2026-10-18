@@ -109,4 +109,6 @@ test('rotation packet rejects malformed increments while legacy charge packets r
   for(const degrees of [-1,NaN,Infinity,501]){g.circleDegrees=degrees;assert.equal(validPacket(p),false);}
   g.circleDegrees=18;g.circleVersion=2;assert.equal(validPacket(p),false);
   g.circleVersion=1;g.circleSeconds=0;assert.equal(validPacket(p),false,'no rotation without qualified active time');
+  g.circleVersion=0;g.circleDegrees=0;assert.equal(validPacket(p),true,'unsupported gyro may still send other motion');
+  g.circleDegrees=1;assert.equal(validPacket(p),false,'unavailable circle input cannot advertise earned rotation');
 });
