@@ -35,6 +35,7 @@ public class UIController : MonoBehaviour
         }
 
         StyleHud();
+        TitleScreenView.Build(titlePanel);
 
         // 購読(+=)。メソッド名の後ろに () は付けない
         gm.OnStateChanged += HandleState;
