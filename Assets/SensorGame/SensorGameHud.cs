@@ -46,11 +46,11 @@ namespace WhackAMole.Sensors
             {
                 var box=Element("Instruction_"+hole.name,transform,new Vector2(.5f,.5f),new Vector2(.5f,.5f),new Vector2(-190,0),new Vector2(190,106));
                 box.pivot=new Vector2(.5f,0);
-                var bg=box.gameObject.AddComponent<Image>();MoleTheme.StylePanel(bg,MoleTheme.Tint(new Color(.025f,.045f,.065f,.9f)),true,true);bg.raycastTarget=false;
+                var bg=box.gameObject.AddComponent<Image>();UITheme.StylePanel(bg,UITheme.Tint(new Color(.025f,.045f,.065f,.9f)),true,true);bg.raycastTarget=false;
                 var text=Text("InstructionText",box,"",23,new Vector2(8,3),new Vector2(372,103),Color.white);text.alignment=TextAlignmentOptions.Center;
                 holeLabels.Add(hole,text);box.gameObject.SetActive(false);
                 var voiceBar=Element("VoiceProgress",box,new Vector2(0,0),new Vector2(1,0),new Vector2(8,2),new Vector2(-8,7));
-                var voiceBack=voiceBar.gameObject.AddComponent<Image>();voiceBack.color=MoleTheme.Tint(new Color(.18f,.23f,.3f));voiceBack.raycastTarget=false;
+                var voiceBack=voiceBar.gameObject.AddComponent<Image>();voiceBack.color=UITheme.Tint(new Color(.18f,.23f,.3f));voiceBack.raycastTarget=false;
                 var voiceFill=Element("Fill",voiceBar,Vector2.zero,Vector2.one,Vector2.zero,Vector2.zero).gameObject.AddComponent<Image>();voiceFill.color=new Color(.55f,1,.7f);voiceFill.raycastTarget=false;voiceBars[hole]=voiceFill;
             }
             BuildPlayPanel();
@@ -66,7 +66,7 @@ namespace WhackAMole.Sensors
         {
             var panel=Element("CameraSettingsPanel",transform,new Vector2(.5f,.5f),new Vector2(.5f,.5f),new Vector2(-430,-45),new Vector2(430,85));
             cameraSettingsPanel=panel.gameObject;
-            var background=panel.gameObject.AddComponent<Image>();MoleTheme.StylePanel(background,MoleTheme.Tint(new Color(.035f,.055f,.075f,.96f)));
+            var background=panel.gameObject.AddComponent<Image>();UITheme.StylePanel(background,UITheme.Tint(new Color(.035f,.055f,.075f,.96f)));
             Text("CameraSettingsTitle",panel,"カメラの表示方向",22,new Vector2(18,99),new Vector2(840,129),Color.white);
             var horizontal=Button("FlipHorizontal",panel,"",new Vector2(18,48),new Vector2(278,94),()=>
             {
@@ -92,11 +92,11 @@ namespace WhackAMole.Sensors
         }
         private TMP_Text Text(string name,Transform parent,string value,int size,Vector2 low,Vector2 high,Color colour)
         {
-            var r=Element(name,parent,Vector2.zero,Vector2.zero,low,high);var text=r.gameObject.AddComponent<TextMeshProUGUI>();text.font=font;text.text=value;text.fontSize=size;text.color=MoleTheme.Tint(colour);text.raycastTarget=false;text.textWrappingMode=TextWrappingModes.Normal;return text;
+            var r=Element(name,parent,Vector2.zero,Vector2.zero,low,high);var text=r.gameObject.AddComponent<TextMeshProUGUI>();text.font=font;text.text=value;text.fontSize=size;text.color=UITheme.Tint(colour);text.raycastTarget=false;text.textWrappingMode=TextWrappingModes.Normal;return text;
         }
         private Image Bar(Transform parent,string name,float x,float y,Color colour,ChargeDisplay display)
         {
-            var r=Element(name,parent,Vector2.zero,Vector2.zero,new Vector2(x,y),new Vector2(x+480,y+16));var bg=r.gameObject.AddComponent<Image>();bg.color=MoleTheme.Tint(new Color(.16f,.2f,.25f));bg.raycastTarget=false;
+            var r=Element(name,parent,Vector2.zero,Vector2.zero,new Vector2(x,y),new Vector2(x+480,y+16));var bg=r.gameObject.AddComponent<Image>();bg.color=UITheme.Tint(new Color(.16f,.2f,.25f));bg.raycastTarget=false;
             display.Colour=colour;
             var trail=Element("SpentTrail",r,Vector2.zero,Vector2.one,Vector2.zero,Vector2.zero);display.Trail=trail.gameObject.AddComponent<Image>();display.Trail.color=new Color(1,.8f,.3f);display.Trail.raycastTarget=false;display.Trail.enabled=false;
             var f=Element("Fill",r,Vector2.zero,Vector2.one,Vector2.zero,Vector2.zero);var fill=f.gameObject.AddComponent<Image>();fill.color=colour;fill.raycastTarget=false;
@@ -135,7 +135,7 @@ namespace WhackAMole.Sensors
         private void OnDestroy(){if(game!=null)game.Model.ChargeSpent-=ShowChargeSpent;if(ringSprite!=null)Destroy(ringSprite);if(ringTexture!=null)Destroy(ringTexture);}
         private Button Button(string name,Transform parent,string label,Vector2 low,Vector2 high,UnityEngine.Events.UnityAction action)
         {
-            var r=Element(name,parent,Vector2.zero,Vector2.zero,low,high);var image=r.gameObject.AddComponent<Image>();var button=r.gameObject.AddComponent<Button>();button.targetGraphic=image;MoleTheme.StyleButton(button,MoleTheme.Rim);button.onClick.AddListener(action);
+            var r=Element(name,parent,Vector2.zero,Vector2.zero,low,high);var image=r.gameObject.AddComponent<Image>();var button=r.gameObject.AddComponent<Button>();button.targetGraphic=image;UITheme.StyleButton(button,UITheme.SurfaceLight);button.onClick.AddListener(action);
             var text=Text("Label",r,label,20,new Vector2(10,0),new Vector2(high.x-low.x-10,high.y-low.y),Color.white);text.alignment=TextAlignmentOptions.Center;return button;
         }
         public void Refresh(string message)
