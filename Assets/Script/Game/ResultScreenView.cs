@@ -34,7 +34,7 @@ public class ResultScreenView : MonoBehaviour
     private void Decorate(TMP_Text sceneText)
     {
         Transform panel = transform;
-        // 従来の青い半透明の幕を、土の色の暗幕に変える
+        // 従来の青い半透明の幕を、暗いグレーの幕に変える
         if (TryGetComponent(out Image shade)) shade.color = new Color(UITheme.Ink.r, UITheme.Ink.g, UITheme.Ink.b, .78f);
         // 文字だけの結果表示は、このビューに置き換える
         if (sceneText != null) sceneText.gameObject.SetActive(false);
@@ -45,7 +45,7 @@ public class ResultScreenView : MonoBehaviour
 
         banner = UITheme.MakeLabel("ResultBanner", panel, new Vector2(0, 428), new Vector2(1200, 130), "", 112, UITheme.Text);
         banner.fontStyle = FontStyles.Bold;
-        UITheme.StyleText(banner, UITheme.Ink, .3f);
+        UITheme.StyleText(banner, UITheme.Ink, .12f);
         verdict = UITheme.MakeLabel("ResultVerdict", panel, new Vector2(0, 340), new Vector2(1200, 50), "", 38, UITheme.Text);
 
         red = MakeCard("Red", new Vector2(-275, 172), "RED", UITheme.Red);
@@ -79,12 +79,12 @@ public class ResultScreenView : MonoBehaviour
     private void StyleRetryButton(Transform retry)
     {
         if (retry == null || !retry.TryGetComponent(out Button button)) return;
-        UITheme.StyleButton(button, UITheme.Accent);
+        UITheme.StyleButton(button, UITheme.Text);
         TMP_Text label = retry.GetComponentInChildren<TMP_Text>();
         if (label == null) return;
-        label.font = UITheme.JapaneseFont;
-        label.text = "▶ RETRY";
-        label.fontSize = 58;
+        label.text = "RETRY";
+        label.fontSize = 50;
+        label.characterSpacing = 8;
         label.fontStyle = FontStyles.Bold;
         label.color = UITheme.Ink;
     }
@@ -112,7 +112,7 @@ public class ResultScreenView : MonoBehaviour
     {
         card.Ribbon.SetActive(winner);
         card.Edge.effectColor = winner ? UITheme.Accent : card.Team;
-        card.Edge.effectDistance = winner ? new Vector2(5, -5) : new Vector2(3, -3);
+        card.Edge.effectDistance = winner ? new Vector2(3, -3) : new Vector2(1.5f, -1.5f);
         card.Root.localScale = Vector3.one * (winner ? 1.06f : 1);
     }
 
