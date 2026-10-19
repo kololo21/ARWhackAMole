@@ -25,12 +25,15 @@ public class TitleScreenView : MonoBehaviour
     {
         Transform panel = transform;
 
-        // Scene にある英語のタイトルをロゴとして整える(英字のフォントのまま使う)
+        // Scene のタイトルを、日本語対応フォントでゲーム名のロゴとして整える
         Transform scene = panel.Find("TitleText");
         if (scene != null && scene.TryGetComponent(out TMP_Text logo))
         {
-            logo.text = "WHACK-A-MOLE";
+            logo.font = UITheme.JapaneseFont;
+            logo.text = "リアモグ";
             logo.fontSize = 124;
+            logo.enableAutoSizing = false;
+            logo.textWrappingMode = TextWrappingModes.NoWrap;
             logo.fontStyle = FontStyles.Bold;
             logo.characterSpacing = 6;
             logo.color = UITheme.Text;
@@ -41,10 +44,11 @@ public class TitleScreenView : MonoBehaviour
             UITheme.StyleText(logo, UITheme.Ink, .12f);
         }
 
-        // ロゴの下の短い黄色の線と副題
-        UITheme.MakeImage("TitleAccent", panel, new Vector2(0, 272), new Vector2(120, 6), UITheme.Accent).sprite = UITheme.RoundedSmall;
-        UITheme.MakeLabel("TitleSubtitle", panel, new Vector2(0, 230), new Vector2(1200, 44),
-            $"AR モグラたたき　<color={UITheme.RedHex}>RED</color> vs <color={UITheme.BlueHex}>BLUE</color>", 32, UITheme.Text);
+        // 小さな英語表記をゲーム名の直下に置き、その下に短い黄色の線を引く
+        var subtitle = UITheme.MakeLabel("TitleSubtitle", panel, new Vector2(0, 248), new Vector2(1200, 44),
+            "REAL MOGURA", 30, UITheme.Subtle);
+        subtitle.characterSpacing = 5;
+        UITheme.MakeImage("TitleAccent", panel, new Vector2(0, 208), new Vector2(120, 6), UITheme.Accent).sprite = UITheme.RoundedSmall;
 
         // 遊び方は枠を付けず、一行の控えめな文字にする
         UITheme.MakeLabel("TitleHowTo", panel, new Vector2(0, 168), new Vector2(1500, 40),
