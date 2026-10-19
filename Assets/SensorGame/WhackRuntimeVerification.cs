@@ -166,11 +166,15 @@ public sealed class WhackRuntimeVerification : MonoBehaviour
             }
             else if(phase==2&&m.Match==SensorBridge.SensorArenaModel.MatchPhase.Result)
             {
-                Check(m.Result=="赤チームの勝ち！"&&m.Red.CirclePoints>m.Blue.CirclePoints&&m.Red.Peak<m.Blue.Peak,"rotation points beat higher acceleration");Screenshot("contest-result.png",true);Check(gm.SensorsPaused,"contest result keeps board paused");phase=3;phaseAt=now;
+                Check(m.Result=="赤チームの勝ち！"&&m.Red.CirclePoints>m.Blue.CirclePoints&&m.Red.Peak<m.Blue.Peak,"rotation points beat higher acceleration");
+                game.AdvanceFrame(now);
+                Check(gm.RedScore==60&&gm.BlueScore==30&&m.LastContest.ScoreAwarded==50,"contest result awards the winner 50 score while the board stays paused");
+                game.AdvanceFrame(now);Check(gm.RedScore==60,"repeated result frame cannot award another 50 points");
+                Screenshot("contest-result.png",true);Check(gm.SensorsPaused,"contest result keeps board paused");phase=3;phaseAt=now;
             }
             else if(phase==3&&m.Match==SensorBridge.SensorArenaModel.MatchPhase.Idle)
             {
-                Check(m.Red.Charge>=Math.Min(100,chargeBefore+25),"winner bonus applied");Check(timeBefore-gm.RemainingTime<.5&&gm.RedScore==10&&gm.BlueScore==30&&!gm.SensorsPaused,"upstream clock resumes with unchanged mole scores");
+                Check(m.Red.Charge>=Math.Min(100,chargeBefore+25),"winner bonus applied");Check(timeBefore-gm.RemainingTime<.5&&gm.RedScore==60&&gm.BlueScore==30&&!gm.SensorsPaused,"upstream clock resumes with exactly one contest score bonus");
                 redCirclePoints=m.Red.CirclePoints;blueCirclePoints=m.Blue.CirclePoints;Screenshot("sensor-game-contest.png",true);
                 game.Holes[0].Clear();WhackSensorGame.SceneObject("FlashMole").GetComponent<Button>().onClick.Invoke();Check(m.Flash!=SensorBridge.SensorArenaModel.FlashPhase.Idle,"warning starts");phase=4;phaseAt=now;
             }
@@ -183,7 +187,7 @@ public sealed class WhackRuntimeVerification : MonoBehaviour
             }
             else if(phase==5&&now-phaseAt>2000)
             {
-                Check(!flashHole.IsAlive&&gm.RedScore==10&&gm.BlueScore==30,"flash expires without points");gm.EndGame();phase=6;phaseAt=now;
+                Check(!flashHole.IsAlive&&gm.RedScore==60&&gm.BlueScore==30,"flash expires without points");gm.EndGame();phase=6;phaseAt=now;
             }
             else if(phase==6&&gm.State==GameState.Result)
             {

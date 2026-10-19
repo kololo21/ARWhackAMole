@@ -5,6 +5,15 @@ namespace WhackAMole.Sensors
     public enum MoleKind { Normal, Charge, Flash, Helmet, Balance, Sleepy, King }
     public static class SensorGamePolicy
     {
+        public const int ContestScoreBonus=50;
+        public static bool TryAwardContestScore(SensorArenaModel model,Func<string,int,bool> award)
+        {
+            var result=model.LastContest;
+            if(result==null||!result.Valid||model.Get(result.Winner)==null||result.ScoreAwarded>0)return false;
+            if(!award(result.Winner,ContestScoreBonus))return false;
+            result.ScoreAwarded=ContestScoreBonus;
+            return true;
+        }
         public static bool CanDefeat(SensorArenaModel model,MoleKind kind,string team,double now)
             => !model.MatchBusy && (Cost(model,kind)<=0||model.Spend(team,now,Cost(model,kind)));
         public static double Cost(SensorArenaModel model,MoleKind kind) => kind==MoleKind.King?model.KingChargeCost:kind==MoleKind.Charge?model.ChargeCost:0;

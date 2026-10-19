@@ -64,12 +64,39 @@ public static class WhackSensorRulesChecks
         Check(special.Red.Voice.Calibrated,"retry keeps device calibration");
         RunVoiceEdgeChecks();
         RunCircleContestChecks();
+        RunContestScoreChecks();
         var flash=new SensorArenaModel();Warm(flash,0);Check(flash.BeginFlash(0)&&flash.Flash==SensorArenaModel.FlashPhase.LeadIn,"PC warning starts without phone ACK");
         Warm(flash,499);flash.Tick(499);Check(flash.Flash==SensorArenaModel.FlashPhase.LeadIn,"Speedy cannot appear before the 500 ms warning ends");
         Warm(flash,500);flash.Tick(500);Check(flash.Flash==SensorArenaModel.FlashPhase.Visible,"Speedy appears at the 500 ms warning boundary");
         Warm(flash,1000);flash.Tick(1000);Check(flash.Flash==SensorArenaModel.FlashPhase.Visible,"Speedy remains visible beyond the old 500 ms window");
         Warm(flash,1499);flash.Tick(1499);Check(flash.Flash==SensorArenaModel.FlashPhase.Visible,"Speedy remains visible until its 1000 ms window ends");
         Warm(flash,1500);flash.Tick(1500);Check(flash.Flash==SensorArenaModel.FlashPhase.Idle,"Speedy expires at the 1000 ms visibility boundary");
+    }
+    private static void RunContestScoreChecks()
+    {
+        foreach(string winner in new[]{"red","blue"})
+        {
+            var m=new SensorArenaModel();Warm(m,0);m.Red.Charge=m.Blue.Charge=100;
+            Check(m.BeginMatch(0),"start score bonus contest");
+            for(double t=50;t<=10250;t+=50)
+            {
+                m.Ingest(Packet("red",t,.05,0,6,winner=="red"?36:18),t);
+                m.Ingest(Packet("blue",t,.05,0,6,winner=="blue"?36:18),t);m.Tick(t);
+            }
+            Check(m.LastContest.Winner==winner&&m.LastContest.Gained==0,"full charge does not prevent a contest winner");
+            Check(!SensorGamePolicy.TryAwardContestScore(m,(team,points)=>false)&&m.LastContest.ScoreAwarded==0,"rejected score award remains retryable");
+            int red=0,blue=0,calls=0;
+            Func<string,int,bool> award=(team,points)=>{calls++;if(team=="red")red+=points;else blue+=points;return true;};
+            Check(SensorGamePolicy.TryAwardContestScore(m,award),"valid winner earns a score bonus while results are shown");
+            for(int i=0;i<10;i++)Check(!SensorGamePolicy.TryAwardContestScore(m,award),"repeated result frames cannot award twice");
+            Check(calls==1&&red==(winner=="red"?50:0)&&blue==(winner=="blue"?50:0)&&m.LastContest.ScoreAwarded==50,"only the winning team receives exactly 50 score");
+            m.Reset();Check(!SensorGamePolicy.TryAwardContestScore(m,award)&&calls==1,"retry clears the old reward");
+        }
+        var tie=new SensorArenaModel();Warm(tie,0);tie.BeginMatch(0);
+        for(double t=50;t<=10250;t+=50){Warm(tie,t);tie.Tick(t);}
+        Check(!SensorGamePolicy.TryAwardContestScore(tie,(team,points)=>{throw new Exception("tie awarded score");}),"tie earns no score");
+        var cancelled=new SensorArenaModel();Warm(cancelled,0);cancelled.BeginMatch(0);cancelled.Tick(600);
+        Check(!SensorGamePolicy.TryAwardContestScore(cancelled,(team,points)=>{throw new Exception("cancelled contest awarded score");}),"disconnected contest earns no score");
     }
     private static void RunVoiceEdgeChecks()
     {

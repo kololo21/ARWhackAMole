@@ -26,7 +26,7 @@ namespace SensorBridge
         public sealed class ContestResult
         {
             public string Winner,Reason;
-            public int RedPoints,BluePoints;
+            public int RedPoints,BluePoints,ScoreAwarded;
             public bool Valid,RewardApplied;
             public double Before,After;
             public double Gained => After-Before;
@@ -115,7 +115,7 @@ namespace SensorBridge
         {
             if(MatchBusy||Flash!=FlashPhase.Idle||!CircleReady(Red,now)||!CircleReady(Blue,now)){Result="腕回し入力待ち：スマホの許可と再読み込みを確認";return false;}
             Red.Peak=Blue.Peak=0;Red.Samples=Blue.Samples=0;Red.CircleDegrees=Blue.CircleDegrees=0;
-            LastContest=null;MatchCountdownMs=now+2000;MatchStartMs=MatchCountdownMs+3000;MatchEndMs=MatchStartMs+5000;Match=MatchPhase.Briefing;Result="まもなく5秒ぐるぐる対決！ 勝者はチャージ+25";
+            LastContest=null;MatchCountdownMs=now+2000;MatchStartMs=MatchCountdownMs+3000;MatchEndMs=MatchStartMs+5000;Match=MatchPhase.Briefing;Result="まもなく5秒ぐるぐる対決！ 勝者はスコア+50・チャージ+25";
             Red.Voice.ResetDetection();Blue.Voice.ResetDetection();
             Send(Red,"countdown",Result,5000);Send(Blue,"countdown",Result,5000);return true;
         }

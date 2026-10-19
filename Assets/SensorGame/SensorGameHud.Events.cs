@@ -148,7 +148,7 @@ namespace WhackAMole.Sensors
                 switch(m.Match)
                 {
                     case SensorArenaModel.MatchPhase.Briefing:
-                        eventValue.text="まもなく対決！";eventHelp.text="穴を叩く手を休めて、チャージと同じ腕回し！\n回転ポイントで勝負・勝者はチャージ+25";break;
+                        eventValue.text="まもなく対決！";eventHelp.text=$"穴を叩く手を休めて、チャージと同じ腕回し！\n勝者はスコア+{SensorGamePolicy.ContestScoreBonus}点・チャージ+25";break;
                     case SensorArenaModel.MatchPhase.Countdown:
                         eventValue.text=Math.Max(1,Math.Ceiling((m.MatchStartMs-now)/1000)).ToString("0");eventHelp.text="腕を回し始めて準備！\n合図から5秒間を測定します";break;
                     case SensorArenaModel.MatchPhase.Circling:
@@ -158,7 +158,9 @@ namespace WhackAMole.Sensors
                     case SensorArenaModel.MatchPhase.Settling:eventValue.text="集計中…";eventHelp.text="動きを止めて、結果を待とう";break;
                     case SensorArenaModel.MatchPhase.Result:
                         var result=m.LastContest;eventValue.text=m.Result;
-                        string reward=result==null||!result.Valid||result.Winner==null?"報酬なし":result.Gained==0?"チャージ満タンのため増加なし":$"{(result.Winner=="red"?"赤":"青")}：チャージ +{result.Gained:0}  {result.Before:0} → {result.After:0}"+(result.Gained<25?"（上限100）":"");
+                        string reward=result==null||!result.Valid||result.Winner==null?"報酬なし":
+                            $"{(result.Winner=="red"?"赤":"青")}：スコア +{result.ScoreAwarded}点 ／ "+
+                            (result.Gained==0?"チャージ満タン（+0）":$"チャージ +{result.Gained:0}（{result.Before:0}→{result.After:0}）");
                         eventHelp.text=$"RED  {result?.RedPoints??0} pt     ／     BLUE  {result?.BluePoints??0} pt\n{reward}\nまもなくモグラたたきを再開";break;
                 }
             }

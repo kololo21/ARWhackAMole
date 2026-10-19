@@ -116,6 +116,20 @@ public class GameManager : MonoBehaviour
         OnScoreChanged?.Invoke(redScore, blueScore);
     }
 
+    // Contest results award points while normal hits and the game clock stay paused.
+    public bool AddContestScore(DwellerColor color,int points)
+    {
+        if(State!=GameState.Playing||points<=0)return false;
+        switch(color)
+        {
+            case DwellerColor.Red:redScore+=points;break;
+            case DwellerColor.Blue:blueScore+=points;break;
+            default:return false;
+        }
+        OnScoreChanged?.Invoke(redScore,blueScore);
+        return true;
+    }
+
     }
 
     // Update is called once per frame

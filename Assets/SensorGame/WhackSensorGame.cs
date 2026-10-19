@@ -192,6 +192,8 @@ namespace WhackAMole.Sensors
             if(IsPlaying)
             {
                 Manager.SensorsPaused=Model.MatchBusy;
+                if(Model.Match==SensorArenaModel.MatchPhase.Result)
+                    SensorGamePolicy.TryAwardContestScore(Model,(team,points)=>Manager.AddContestScore(team=="red"?DwellerColor.Red:DwellerColor.Blue,points));
                 if(contestPending&&!Model.MatchBusy)
                 {
                     contestPending=false;SensorGamePolicy.RewardWinner(Model);notice=Model.Result;
