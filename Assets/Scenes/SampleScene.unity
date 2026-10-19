@@ -305,7 +305,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: WHACK-A-MOLE
+  m_text: REAL MOGURA
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
   m_sharedMaterial: {fileID: 2180264, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
@@ -770,9 +770,9 @@ MonoBehaviour:
   firstDelay: 1
   intervalMin: 1
   intervalMax: 2
-  lifetimeMin: 2
-  lifetimeMax: 4
-  maxAlive: 2
+  lifetimeMin: 1
+  lifetimeMax: 3
+  maxAlive: 3
   redChance: 0.5
 --- !u!4 &422258776
 Transform:
@@ -1469,6 +1469,8 @@ MonoBehaviour:
   roomKey: demo-room-change-me-2026
   allowSimulated: 0
   automaticSensorEvents: 1
+  balanceTiltDegrees: 30
+  balanceHoldSeconds: 0.6
 --- !u!1 &874446944
 GameObject:
   m_ObjectHideFlags: 0
