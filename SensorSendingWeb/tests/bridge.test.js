@@ -59,7 +59,8 @@ test('red/blue relay, isolation, sender identity, duplicates, snapshot without g
   const samples=receiver.messages.filter(m=>m.type==='sample');assert.deepEqual(samples.map(s=>s.player).sort(),['blue','red']);assert.equal(samples.find(s=>s.player==='red').gestures[0].kind,'shake');assert.equal(other.messages.some(s=>s.type==='sample'),false);
   const next=await connect(url,{role:'receiver',room});await until(()=>next.messages.filter(m=>m.type==='sample').length===2);assert.ok(next.messages.filter(m=>m.type==='sample').every(s=>s.gestures.length===0));
   red.send(JSON.stringify(p));red.send(JSON.stringify(packet(1)));await until(()=>receiver.messages.filter(m=>m.type==='sample').length===3);assert.equal(receiver.messages.filter(m=>m.type==='sample').length,3);
-  red.close();await until(()=>receiver.messages.some(m=>m.type==='presence'&&m.players.some(x=>x.player==='red'&&!x.connected)));
+  const beforeClose=receiver.messages.length;
+  red.close();await until(()=>receiver.messages.slice(beforeClose).some(m=>m.type==='presence'&&m.players.some(x=>x.player==='red'&&!x.connected)));
   const afterClose=await connect(url,{role:'receiver',room});await until(()=>afterClose.messages.some(m=>m.type==='joined'));await new Promise(r=>setTimeout(r,40));assert.equal(afterClose.messages.filter(m=>m.type==='sample'&&m.player==='red').length,0);
 });
 test('duplicate player rejected, receive-only role cannot send samples',async t=>{
