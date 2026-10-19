@@ -40,7 +40,7 @@ namespace SensorBridge
         public event Action<Signal> Feedback;
         public event Action<Player,double,double> ChargeSpent;
         public bool AllowSimulated;
-        public double ChargePerSecond=20, ChargeLimit=100, ChargeCost=50, KingChargeCost=75, WarningLeadMs=2000, FlashDurationMs=1800;
+        public double ChargePerSecond=20, ChargeLimit=100, ChargeCost=50, KingChargeCost=75, WarningLeadMs=500, FlashDurationMs=1000;
         public ContestResult LastContest {get;private set;}
         public double MatchCountdownMs {get;private set;}
         public double MatchResultUntilMs {get;private set;}

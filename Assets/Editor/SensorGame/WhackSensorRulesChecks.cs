@@ -65,8 +65,11 @@ public static class WhackSensorRulesChecks
         RunVoiceEdgeChecks();
         RunCircleContestChecks();
         var flash=new SensorArenaModel();Warm(flash,0);Check(flash.BeginFlash(0)&&flash.Flash==SensorArenaModel.FlashPhase.LeadIn,"PC warning starts without phone ACK");
-        Warm(flash,2000);flash.Tick(2000);Check(flash.Flash==SensorArenaModel.FlashPhase.Visible,"PC warning has two-second lead-in");
-        Warm(flash,3800);flash.Tick(3800);Check(flash.Flash==SensorArenaModel.FlashPhase.Idle,"speedy window ends after 1800 ms");
+        Warm(flash,499);flash.Tick(499);Check(flash.Flash==SensorArenaModel.FlashPhase.LeadIn,"Speedy cannot appear before the 500 ms warning ends");
+        Warm(flash,500);flash.Tick(500);Check(flash.Flash==SensorArenaModel.FlashPhase.Visible,"Speedy appears at the 500 ms warning boundary");
+        Warm(flash,1000);flash.Tick(1000);Check(flash.Flash==SensorArenaModel.FlashPhase.Visible,"Speedy remains visible beyond the old 500 ms window");
+        Warm(flash,1499);flash.Tick(1499);Check(flash.Flash==SensorArenaModel.FlashPhase.Visible,"Speedy remains visible until its 1000 ms window ends");
+        Warm(flash,1500);flash.Tick(1500);Check(flash.Flash==SensorArenaModel.FlashPhase.Idle,"Speedy expires at the 1000 ms visibility boundary");
     }
     private static void RunVoiceEdgeChecks()
     {
